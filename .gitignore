@@ -3,3 +3,4 @@
 **/*.elf
 **/*.o
 **/*.out
+pass_makers.cc
