@@ -27,18 +27,21 @@ AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.c
 AUTOP_PLUGIN_SOURCES = $(addprefix $(SRC_DIR)/, $(AUTOP_PLUGIN_SRC_FILES))
 
 CXXFLAGS = -O2 -I$(INCLUDE_DIR)
-PLUGINFLAGS = -fplugin=/home/lexotr/Opt_odg/gcc_dyn_list/autophase_plugin.so  
+PLUGINFLAGS = -fplugin=/home/lexotr/Opt_odg/gcc_dyn_list/autophase_plugin.so
 PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_optimized
 #PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_dfinish
 
 preproc_gimple: $(AUTOP_PLUGIN_SOURCES) $(INCLUDE_DIR)/autophase_plugin.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -E $(SRC_DIR)/gimple_character.cc > plugin.preproc
 
-autophase_plugin.so : $(AUTOP_PLUGIN_SOURCES) $(INCLUDE_DIR)/autophase_plugin.hh
+autophase_plugin.so : $(AUTOP_PLUGIN_SOURCES) $(INCLUDE_DIR)/autophase_plugin.hh $(INCLUDE_DIR)/gimple_character.hh $(INCLUDE_DIR)/rtl_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $(AUTOP_PLUGIN_SOURCES) -o $@
 
 test_bin: autophase_plugin.so $(TEST_SRC_DIR)/fizzbuzz.c
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -fdump-tree-esra -c $(TEST_SRC_DIR)/fizzbuzz.c -o /dev/null
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/fizzbuzz.c -o /dev/null
+
+test_phi: autophase_plugin.so $(TEST_SRC_DIR)/phi.c
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/phi.c -o /dev/null
 
 test_excep: autophase_plugin.so $(TEST_SRC_DIR)/except.cc
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -fdump-tree-optimized -c $(TEST_SRC_DIR)/except.cc -o /dev/null

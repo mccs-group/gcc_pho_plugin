@@ -40,7 +40,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
             struct register_pass_info pass_info;
 
             pass_info.pass = new gimple_character(g);
-            pass_info.reference_pass_name = "esra";
+            pass_info.reference_pass_name = "optimized";
             pass_info.ref_pass_instance_number = 1;
             pass_info.pos_op = PASS_POS_INSERT_AFTER;
 

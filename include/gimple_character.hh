@@ -109,29 +109,31 @@ class gimple_character: public gimple_opt_pass
     std::vector<int> statement_amount;
     std::array<int, CHARACTERISTICS_AMOUNT> autophase_embeddings = {0};
 
-    bool in_binary = false;
     int current_bb_phi_args = 0;
     int current_bb_phi_count = 0;
+    bool first_stmt = true;
+
+    walk_stmt_info walk_info;
 
 public:
-		gimple_character(gcc::context* g) : gimple_opt_pass(gimple_character_data, g) 
-        {
-            #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
-            #include "gimple.def"
-            #undef DEFGSCODE
+    gimple_character(gcc::context* g) : gimple_opt_pass(gimple_character_data, g) 
+    {
+        #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
+        #include "gimple.def"
+        #undef DEFGSCODE
 
-            #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_node_names.push_back(STRING);
-            #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
-            #include "all-tree.def"
-            #undef DEFTREECODE
-            #undef END_OF_BASE_TREE_CODES
+        #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_node_names.push_back(STRING);
+        #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
+        #include "all-tree.def"
+        #undef DEFTREECODE
+        #undef END_OF_BASE_TREE_CODES
 
-            // std::cout << "size " << tree_node_names.size() << std::endl;
-            statement_amount.resize(gimple_stmt_names.size());
-        }
+        // std::cout << "size " << tree_node_names.size() << std::endl;
+        statement_amount.resize(gimple_stmt_names.size());
+    }
 
-		opt_pass* clone() override {return this;}
-        
+    opt_pass* clone() override {return this;}
+
 
     void send_characterisation(function* fun);
 
@@ -141,21 +143,18 @@ public:
     void parse_gimple_seq(gimple_seq seq);
 
     void parse_assign(gimple* gs);
-    void parse_try(gimple* gs);
     void parse_phi(gimple* gs);
     void parse_cond(gimple* gs);
     void parse_call(gimple* gs);
     void parse_return(gimple* gs);
-    void parse_asm(gasm* gs);
-    void parse_catch(gcatch* gs);
-    void parse_eh_filt(gimple* gs);
-    void parse_eh_else(geh_else* gs);
     void parse_gimple_tree(tree node);
 
     void parse_stmt(gimple *gs);
-    void parse_op(tree op);
 
     virtual unsigned int execute(function * fun) override;
+
+public:
+    bool in_binary = false;
 };
 
 
