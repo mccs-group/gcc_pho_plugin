@@ -2,19 +2,32 @@
 TARGET_GCC=$(AARCH_GCC)
 
 #Get path to header files from target gcc
-INCLUDE_DIR=$(shell $(TARGET_GCC) -print-file-name=plugin)
+GCC_INCLUDE_DIR=$(shell $(TARGET_GCC) -print-file-name=plugin)
 
 SRC_DIR=src
-SRC_FILES=plugin.cc
+INCL_DIR=include
+OBJ_FILES=plugin.o callbacks.o plugin_passes.o pass_makers.o
+
+BUILD_DIR=build
 
 CXX=g++
-CXX_FLAGS= -I$(INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O2
+CXX_FLAGS= -I$(GCC_INCLUDE_DIR)/include -I./$(INCL_DIR) -I./ -fno-rtti -fPIC -O2
 
-plugin.so: $(addprefix $(SRC_DIR)/, $(SRC_FILES)) extern_makers.cc pass_makers.cc
-	$(CXX) -shared $(CXX_FLAGS) $(SRC_DIR)/plugin.cc -o $@
+plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
+	$(CXX) $(CXX_FLAGS) -shared $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) -o $@
+
+$(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) : $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cc  $(INCL_DIR)/%.h
+	$(CXX) $(CXX_FLAGS) -c -shared $< -o $@
 
 makers_gen.elf: $(SRC_DIR)/makers_gen.cc 
 	$(CXX) $^ -o $@
 
-pass_makers.cc: pass_makers.conf makers_gen.elf 
-	./makers_gen.elf pass_makers.conf
+$(SRC_DIR)/pass_makers.cc: pass_makers.conf makers_gen.elf 
+	./makers_gen.elf pass_makers.conf > $(SRC_DIR)/pass_makers.cc
+
+$(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h extern_makers.cc
+
+.PHONY: clean
+
+clean:
+	rm *.elf *.so $(SRC_DIR)/pass_makers.cc $(BUILD_DIR)/*
