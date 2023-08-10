@@ -212,7 +212,7 @@ void rtl_character::parse_expr_vec(rtx_def* exp, int index)
     return;
 }
 
-unsigned int rtl_character::execute(function * fun)
+unsigned int rtl_character::parse_function(function * fun)
 {
     characteristics[FUNCTIONS]++;
     basic_block bb;

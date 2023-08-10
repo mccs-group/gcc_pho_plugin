@@ -262,7 +262,7 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
     }
 }
 
-unsigned int gimple_character::execute(function * fun)
+unsigned int gimple_character::parse_function(function * fun)
 {
     // std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
 

@@ -45,7 +45,7 @@ const pass_data gimple_character_data =
     0
 };
 
-class gimple_character: public gimple_opt_pass
+class gimple_character
 {
     enum gimple_autophase_embed
     {
@@ -120,9 +120,10 @@ class gimple_character: public gimple_opt_pass
     bool first_stmt = true;
 
     walk_stmt_info walk_info;
+    bool in_binary = false;
 
 public:
-    gimple_character(gcc::context* g) : gimple_opt_pass(gimple_character_data, g) 
+    gimple_character()
     {
         #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
         #include "gimple.def"
@@ -137,9 +138,6 @@ public:
         // std::cout << "size " << tree_node_names.size() << std::endl;
         statement_amount.resize(gimple_stmt_names.size());
     }
-
-    opt_pass* clone() override {return this;}
-
 
     void send_characterisation(function* fun);
 
@@ -157,10 +155,19 @@ public:
     void parse_stmt(gimple *gs);
     void parse_node(tree node);
 
-    virtual unsigned int execute(function * fun) override;
+    unsigned int parse_function(function * fun);
+};
+
+class gimple_character_pass: public gimple_opt_pass
+{
+    gimple_character characteriser;
 
 public:
-    bool in_binary = false;
+    gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
+    {}
+    opt_pass* clone() override {return this;}
+
+    virtual unsigned int execute (function* fun) override { return characteriser.parse_function(fun); }
 };
 
 

@@ -26,7 +26,7 @@ const pass_data rtl_character_data = {
 			0,
 		};
 
-class rtl_character : public rtl_opt_pass
+class rtl_character
 {
     enum autophase_embed
     {
@@ -91,7 +91,7 @@ class rtl_character : public rtl_opt_pass
 
 public:
     bool to_dump = false;
-    rtl_character(gcc::context* g) : rtl_opt_pass(rtl_character_data, g)
+    rtl_character()
     {
         std::cout << "waste" << std::endl;
         test_p = (int *)xcalloc(4, 655360);
@@ -101,14 +101,12 @@ public:
         inst_count.resize(names.size());
     }
 
-    opt_pass* clone() override {return this;}
-
     void parse_insn(rtx_def* insn);
     void parse_set_expr(rtx_def* exp);
     void parse_expr_vec(rtx_def* exp, int index);
     void parse_expr(rtx_def* exp);
 
-    virtual unsigned int execute(function * fun) override;
+    unsigned int parse_function(function * fun);
 
     ~rtl_character();
 
@@ -118,6 +116,20 @@ private:
     bool bin_instr(enum rtx_class exp_class);
     void count_instr(enum rtx_class exp_class, enum rtx_code exp_code);
     void safe_statistics(rtx_def* exp);
+};
+
+class rtl_character_pass : public rtl_opt_pass
+{
+    rtl_character characteriser;
+
+    public:
+    rtl_character_pass(gcc::context* g) : rtl_opt_pass(rtl_character_data, g)
+    {}
+    opt_pass* clone() override {return this;}
+
+    void set_dump(bool flag) {characteriser.to_dump = flag;}
+
+    virtual unsigned int execute (function* fun) override { return characteriser.parse_function(fun); }
 };
 
 #endif

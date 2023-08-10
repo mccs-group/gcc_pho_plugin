@@ -39,7 +39,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
         {
             struct register_pass_info pass_info;
 
-            pass_info.pass = new gimple_character(g);
+            pass_info.pass = new gimple_character_pass(g);
             pass_info.reference_pass_name = "optimized";
             pass_info.ref_pass_instance_number = 1;
             pass_info.pos_op = PASS_POS_INSERT_AFTER;
@@ -52,9 +52,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
         {
             struct register_pass_info pass_info;
 
-            rtl_character* rtl_dump = new rtl_character(g);
+            rtl_character_pass* rtl_dump = new rtl_character_pass(g);
             pass_info.pass = rtl_dump;
-            rtl_dump->to_dump = true;
+            rtl_dump->set_dump(true);
             pass_info.reference_pass_name = "dfinish";
             pass_info.ref_pass_instance_number = 1;
             pass_info.pos_op = PASS_POS_INSERT_AFTER;
