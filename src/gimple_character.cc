@@ -12,9 +12,22 @@
 static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_stmt_info* optional);
 static tree count_op(tree* node, int* smth, void* wi);
 
+void gimple_character::parse_node(tree node)
+{
+    if (integer_zerop(node))
+        autophase_embeddings[gimple_autophase_embed::ZERO_COUNT]++;
+    if (integer_onep(node))
+        autophase_embeddings[gimple_autophase_embed::ONE_COUNT]++;
+
+    enum tree_code code = TREE_CODE(node);
+    enum tree_code_class code_class = tree_code_type[code];
+
+    save_statistics(code, code_class);
+}
+
 void gimple_character::save_statistics(tree_code code, tree_code_class code_class)
 {
-    if (code_class == tree_code_class::tcc_binary)
+    if (code_class == tree_code_class::tcc_binary || code_class == tree_code_class::tcc_comparison)
         in_binary = true;
 
     if (in_binary && (code_class == tree_code_class::tcc_constant))
@@ -92,6 +105,7 @@ void gimple_character::parse_tree_code(tree_code code)
 void gimple_character::parse_cond(gimple* gs)
 {
     // std::cout << "cond operation: " << tree_node_names[gimple_cond_code(gs)];
+    current_instr_count++;
     save_statistics(gimple_cond_code(gs), tree_code_type[gimple_cond_code(gs)]);
     // std::cout << " ops: " << tree_node_names[TREE_CODE(gimple_cond_lhs(gs))] << ' ' << tree_node_names[TREE_CODE(gimple_cond_rhs(gs))] << std::endl;
     // parse_gimple_tree(gimple_cond_lhs(gs));
@@ -116,8 +130,8 @@ void gimple_character::parse_call(gimple* gs)
 void gimple_character::parse_return(gimple* gs)
 {
     autophase_embeddings[gimple_autophase_embed::RET]++;
-    if (gimple_return_retval(static_cast<greturn*>(gs)) &&
-        TREE_CODE(gimple_return_retval(static_cast<greturn*>(gs))) == tree_code::INTEGER_CST)
+    tree ret_node = gimple_return_retval(static_cast<greturn*>(gs));
+    if (ret_node && ((TREE_CODE(ret_node) == tree_code::INTEGER_CST) || (TREE_CODE(TREE_TYPE(ret_node))) == tree_code::INTEGER_TYPE))
     {
         autophase_embeddings[gimple_autophase_embed::RET_INT]++;
     }
@@ -134,13 +148,17 @@ void gimple_character::parse_assign(gimple* gs)
 
     enum tree_code rhs_code = gimple_assign_rhs_code(gs);
     if (!(get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS))
+    {
+        current_instr_count++;
         save_statistics(rhs_code, tree_code_type[rhs_code]);
+    }
 }
 
 
 
 void gimple_character::parse_stmt(gimple *gs)
 {
+    current_instr_count++;
     enum tree_code rhs_code = gimple_assign_rhs_code(gs);
 
     switch(gimple_code (gs))
@@ -159,6 +177,7 @@ void gimple_character::parse_stmt(gimple *gs)
 
         case GIMPLE_GOTO:
             autophase_embeddings[gimple_autophase_embed::BRANCHES]++;
+            autophase_embeddings[gimple_autophase_embed::UNCOND_BRANCHES]++;
             break;
 
         case GIMPLE_RETURN:
@@ -183,8 +202,6 @@ static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_st
     // std::cout << "In stmt " << walk_debug[int(gimple_code (gs))] << std::endl;
     gimple_character* characterisator = reinterpret_cast<gimple_character*>(wi->info);
     characterisator->parse_stmt(gs);
-    if (characterisator->in_binary)
-        characterisator->in_binary = false;
 
     return NULL;
 }
@@ -211,7 +228,8 @@ static tree count_op(tree* node, int* smth, void* wi)
 
     // std::cout << " with code " << code << std::endl;
     gimple_character* characterisator = reinterpret_cast<gimple_character*>((reinterpret_cast<walk_stmt_info*>(wi))->info);
-    characterisator->save_statistics(code, code_class);
+
+    characterisator->parse_node(*node);
 
     return NULL;
 }
@@ -227,13 +245,16 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
         enum gimple_code code = gimple_code (gs);
 
         walk_info.info = this;
-        walk_info.pset = new hash_set<tree>;
+        walk_info.pset = new hash_set<tree>; // traverse with remove instead of allocating each time?
 
         statement_amount[int(code)]++;
         autophase_embeddings[gimple_autophase_embed::INSTRUCTIONS]++;
 
         // std::cout << int(code) << ' ' << gimple_stmt_names[int(code)] << " code" << std::endl;
+        current_instr_count = 0;
         walk_gimple_stmt(&i, count_stmt, count_op, &walk_info);
+        if (in_binary)
+            in_binary = false;
         // std::cout << "---parsed stmt---" << std::endl;
         delete walk_info.pset;
 
@@ -245,7 +266,6 @@ unsigned int gimple_character::execute(function * fun)
 {
     // std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
 
-    autophase_embeddings[gimple_autophase_embed::FUNCTIONS]++;
     basic_block bb;
 
     FOR_ALL_BB_FN(bb, fun)
@@ -260,9 +280,15 @@ unsigned int gimple_character::execute(function * fun)
 
         parse_gimple_seq(seq);
 
+        if ((current_instr_count >= 15) && (current_instr_count <= 500))
+            autophase_embeddings[gimple_autophase_embed::BB_MID_INST]++;
+        else if (current_instr_count < 15)
+            autophase_embeddings[gimple_autophase_embed::BB_LOW_INST]++;
+
         gphi_iterator pi;
         if (!gsi_end_p (gsi_start_phis (bb)))
             autophase_embeddings[gimple_autophase_embed::BB_BEGIN_PHI]++;
+
         for (pi = gsi_start_phis (bb); !gsi_end_p (pi); gsi_next (&pi))
         {
             parse_phi(pi.phi());
@@ -319,6 +345,42 @@ unsigned int gimple_character::execute(function * fun)
             bb_pred++;
         }
 
+        switch(bb_pred)
+        {
+            case 0:
+                break;
+            case 1:
+                autophase_embeddings[BB_ONE_PRED]++;
+                switch(bb_suc)
+                {
+                    case 1:
+                        autophase_embeddings[BB_ONE_PRED_ONE_SUCC]++;
+                        break;
+                    case 2:
+                        autophase_embeddings[BB_ONE_PRED_TWO_SUCC]++;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case 2:
+                autophase_embeddings[BB_TWO_PRED]++;
+                switch(bb_suc)
+                {
+                    case 1:
+                        autophase_embeddings[BB_TWO_PRED_ONE_SUCC]++;
+                        break;
+                    case 2:
+                        autophase_embeddings[BB_TWO_EACH]++;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                autophase_embeddings[BB_MORE_PRED]++;
+        }
+
         switch(bb_suc)
         {
             case 0:
@@ -330,22 +392,9 @@ unsigned int gimple_character::execute(function * fun)
                 autophase_embeddings[BB_TWO_SUCC]++;
                 break;
             default:
-                autophase_embeddings[BB_MORE_SUCC]++;
+                break;
         }
 
-        switch(bb_pred)
-        {
-            case 0:
-                break;
-            case 1:
-                autophase_embeddings[BB_ONE_PRED]++;
-                break;
-            case 2:
-                autophase_embeddings[BB_TWO_PRED]++;
-                break;
-            default:
-                autophase_embeddings[BB_MORE_PRED]++;
-        }
     }
 
     send_characterisation(fun);

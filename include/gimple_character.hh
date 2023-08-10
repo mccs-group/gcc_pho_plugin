@@ -50,12 +50,12 @@ class gimple_character: public gimple_opt_pass
     enum gimple_autophase_embed
     {
         BRANCHES = 0,
+        UNCOND_BRANCHES,
         UNARY_INSTR,
         MEMORY_INSTR,
         BINARY_WITH_CONST,
         RET_INT,
         INSTRUCTIONS,
-        FUNCTIONS,
 
         BB_PHI_ARGS_GT_5,
         BB_PHI_ARGS_LESS_5,
@@ -63,22 +63,27 @@ class gimple_character: public gimple_opt_pass
         BB_PHI_03,
         BB_PHI_HI,
         BB_BEGIN_PHI,
+
         BB_ONE_PRED,
-        BB_TWO_PRED,
-        BB_MORE_PRED,
+        BB_ONE_PRED_ONE_SUCC,
+        BB_ONE_PRED_TWO_SUCC,
         BB_ONE_SUCC,
+        BB_TWO_PRED,
+        BB_TWO_PRED_ONE_SUCC,
         BB_TWO_SUCC,
-        BB_MORE_SUCC,
-        BB_LESS_15_INST,
-        BB_MORE_15_INST,
+        BB_TWO_EACH,
+        BB_MORE_PRED,
+
+        BB_MID_INST,
+        BB_LOW_INST,
         BB_COUNT,
 
         CRIT_EDGES,
         EDGES,
 
         INT_COUNT,
-        ZERO_COUNT, // ?
-        ONE_COUNT, // ?
+        ZERO_COUNT,
+        ONE_COUNT,
 
         SHR,
         SHL,
@@ -111,6 +116,7 @@ class gimple_character: public gimple_opt_pass
 
     int current_bb_phi_args = 0;
     int current_bb_phi_count = 0;
+    int current_instr_count = 0;
     bool first_stmt = true;
 
     walk_stmt_info walk_info;
@@ -147,9 +153,9 @@ public:
     void parse_cond(gimple* gs);
     void parse_call(gimple* gs);
     void parse_return(gimple* gs);
-    void parse_gimple_tree(tree node);
 
     void parse_stmt(gimple *gs);
+    void parse_node(tree node);
 
     virtual unsigned int execute(function * fun) override;
 
