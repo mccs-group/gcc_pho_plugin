@@ -9,6 +9,7 @@ INCL_DIR=include
 OBJ_FILES=plugin.o callbacks.o plugin_passes.o pass_makers.o
 
 BUILD_DIR=build
+OBJ_DIR = $(BUILD_DIR)
 
 INCLUDE_DIR = include
 
@@ -17,7 +18,7 @@ CXX=g++
 PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O2 -I$(INCLUDE_DIR)
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
-	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) -o $@
+	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $^ -o $@
 
 $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) : $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cc  $(INCL_DIR)/%.h
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -c -shared $< -o $@
@@ -28,7 +29,12 @@ makers_gen.elf: $(SRC_DIR)/makers_gen.cc
 $(SRC_DIR)/pass_makers.cc: pass_makers.conf makers_gen.elf 
 	./makers_gen.elf pass_makers.conf > $(SRC_DIR)/pass_makers.cc
 
-$(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h extern_makers.cc
+$(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h \
+	$(INCL_DIR)/gimple_character.hh extern_makers.cc
+
+$(BUILD_DIR)/plugin_passes.o: $(INCL_DIR)/gimple_character.hh
+
+plugin.so: $(BUILD_DIR)/gimple_character.o
 
 .PHONY: clean clean_obj
 
@@ -38,7 +44,6 @@ AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.c
 AUTOP_PLUGIN_SOURCES = $(addprefix $(SRC_DIR)/, $(AUTOP_PLUGIN_SRC_FILES))
 
 AUTOP_OBJECTS = $(AUTOP_PLUGIN_SRC_FILES:.cc=.o)
-OBJ_DIR = $(BUILD_DIR)
 AUTOP_OBJ := $(addprefix $(OBJ_DIR)/, $(AUTOP_OBJECTS))
 
 CXXFLAGS = -O2 -I$(INCLUDE_DIR)

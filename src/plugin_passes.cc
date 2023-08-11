@@ -11,6 +11,7 @@
 #include "plugin-version.h"
 #include "tree-pass.h"
 
+#include "gimple_character.hh"
 #include "pass_makers.h"
 #include "plugin_passes.h"
 
@@ -48,7 +49,7 @@ unsigned int list_recv_pass::execute(function *fun)
     char *func_name = input_buf;
     char *pass_list = input_buf + 100;
 
-    if (strcmp(func_name, function_name(fun))) {
+    if ((func_name[0] != 0) && (strcmp(func_name, function_name(fun)))) {
         internal_error("dynamic replace plugin pass received pass list for "
                        "wrong function. Expected [%s], got [%s]",
                        function_name(fun), func_name);
@@ -100,7 +101,21 @@ unsigned int list_recv_pass::execute(function *fun)
 unsigned int func_name_send_pass::execute(function *fun)
 {
     const char *func_name = function_name(fun);
-    send(socket_fd, func_name, strlen(func_name), 0);
+    if (send(socket_fd, func_name, strlen(func_name), 0) == -1) {
+        internal_error("dynamic replace plugin failed to send function name\n");
+    }
+    return 0;
+}
+
+/// This pass send current function embedding
+unsigned int embedding_send_pass::execute(function *fun)
+{
+    autophase_generator.parse_function(fun);
+    int *embedding = autophase_generator.data();
+    if (send(socket_fd, embedding, autophase_generator.CHARACTERISTICS_AMOUNT,
+             0) == -1) {
+        internal_error("dynamic replace plugin failed to send embedding\n");
+    }
     return 0;
 }
 

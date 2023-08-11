@@ -7,7 +7,9 @@
 #include "gcc-plugin.h"
 #include "tree-pass.h"
 #include "tree.h"
+#include "gimple_character.hh"
 
+/// Dummy marker pass, does nothing
 class dummy_pass : public opt_pass {
   public:
     dummy_pass(const pass_data &data, gcc::context *g) : opt_pass(data, g) {}
@@ -15,6 +17,7 @@ class dummy_pass : public opt_pass {
     opt_pass *clone() override { return new dummy_pass(*this); }
 };
 
+/// Pass that receives pass list on socket and inserts it
 class list_recv_pass : public opt_pass {
   public:
     list_recv_pass(const pass_data &data, gcc::context *g, int socket_fd)
@@ -33,6 +36,7 @@ class list_recv_pass : public opt_pass {
     unsigned int execute(function *fun) override;
 };
 
+/// Pass that sends current function name
 class func_name_send_pass : public opt_pass {
   public:
     func_name_send_pass(const pass_data &data, gcc::context *g, int socket_fd)
@@ -43,6 +47,22 @@ class func_name_send_pass : public opt_pass {
     int socket_fd;
 
     opt_pass *clone() override { return new func_name_send_pass(*this); }
+
+    unsigned int execute(function *fun) override;
+};
+
+/// Pass that sends current function embedding
+class embedding_send_pass : public opt_pass {
+  public:
+    embedding_send_pass(const pass_data &data, gcc::context *g, int socket_fd)
+        : opt_pass(data, g), socket_fd{socket_fd}
+    {
+    }
+
+    int socket_fd;
+    gimple_character autophase_generator;
+
+    opt_pass *clone() override { return new embedding_send_pass(*this); }
 
     unsigned int execute(function *fun) override;
 };
