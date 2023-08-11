@@ -48,7 +48,7 @@ public:
     {}
     opt_pass* clone() override {return this;}
 
-    virtual unsigned int execute (function* fun) override { return characteriser.parse_function(fun); }
+    virtual unsigned int execute (function* fun) override { characteriser.parse_function(fun); characteriser.reset(); return 0; }
 };
 
 class rtl_character_pass : public rtl_opt_pass

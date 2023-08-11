@@ -55,7 +55,8 @@ $(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc $(INCLUDE_DIR)/gi
 $(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc $(INCLUDE_DIR)/rtl_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
-$(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc
+$(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc $(INCLUDE_DIR)/autophase_plugin.hh\
+								$(INCLUDE_DIR)/gimple_character.hh $(INCLUDE_DIR)/rtl_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 autophase_plugin.so : $(AUTOP_OBJ)
@@ -72,8 +73,6 @@ test_excep: autophase_plugin.so $(TEST_SRC_DIR)/except.cc
 
 test_bzip2: autophase_plugin.so $(TEST_SRC_DIR)/bzip2d/blocksort.c
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -fdump-tree-optimized -fdump-rtl-dfinish -c $(TEST_SRC_DIR)/bzip2d/blocksort.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
-
-$(SRC_DIR)/autophase_plugin.cc : $(INCLUDE_DIR)/autophase_plugin.hh $(INCLUDE_DIR)/gimple_character.hh $(INCLUDE_DIR)/rtl_character.hh
 
 clean_obj:
 	rm obj/*

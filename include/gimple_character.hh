@@ -145,7 +145,7 @@ public:
 
     int* data() { return autophase_embeddings.data(); }
 
-    unsigned int parse_function(function * fun);
+    int* parse_function(function * fun);
 };
 
 #endif

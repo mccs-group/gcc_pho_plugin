@@ -370,7 +370,7 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
     }
 }
 
-unsigned int gimple_character::parse_function(function * fun)
+int* gimple_character::parse_function(function * fun)
 {
     #if DEBUG_PRINTS
     std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
@@ -508,13 +508,13 @@ unsigned int gimple_character::parse_function(function * fun)
     }
 
     send_characterisation(fun);
-    reset();
+    // reset();
 
     #if DEBUG_PRINTS
     std::cout << "============" << std::endl;
     #endif
 
-    return 0;
+    return autophase_embeddings.data();
 }
 
 static bool clear_hash_set(const hash_set<tree>::Key& key, hash_set<tree>* set)
