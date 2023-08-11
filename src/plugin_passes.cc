@@ -11,8 +11,8 @@
 #include "plugin-version.h"
 #include "tree-pass.h"
 
-#include "plugin_passes.h"
 #include "pass_makers.h"
+#include "plugin_passes.h"
 
 /// Symbol required by GCC
 int plugin_is_GPL_compatible;
@@ -21,19 +21,77 @@ static void delete_pass_tree(opt_pass *pass);
 
 unsigned int list_recv_pass::execute(function *fun)
 {
+
     opt_pass *pass = next;
     opt_pass *prev_pass = NULL;
-    while (pass && strcmp(pass->name, "*plugin_dummy_pass_list_end")) {
+    const char *dummy_name = "*plugin_dummy_pass_end_list";
+    while (pass && strncmp(pass->name, dummy_name, strlen(dummy_name))) {
         prev_pass = pass;
         pass = pass->next;
     }
     if (!pass) {
-        error("dynamic replace could not find list end\n");
+        internal_error("dynamic replace plugin pass could not find list end\n");
     }
 
-    prev_pass->next = NULL;
-    delete_pass_tree(next);
-    next = pass;
+    if (prev_pass != NULL) {
+        prev_pass->next = NULL;
+        delete_pass_tree(next);
+        next = pass;
+    }
+
+    int size = recv(socket_fd, input_buf, 4096, 0);
+    if (size == -1) {
+        internal_error(
+            "dynamic replace plugin pass failed to receive data on socket\n");
+    }
+
+    char *func_name = input_buf;
+    char *pass_list = input_buf + 100;
+
+
+    if (strcmp(func_name, function_name(fun))) {
+        internal_error("dynamic replace plugin pass received pass list for "
+                       "wrong function. Expected [%s], got [%s]",
+                       function_name(fun), func_name);
+    }
+
+    char *pass_name = strtok(pass_list, "\n");
+    while (pass_name) {
+        opt_pass *pass_to_insert = pass_by_name(pass_name);
+        if (pass_to_insert == NULL) {
+            internal_error("dynamic replace plugin pass received an unknown "
+                           "pass name [%s] in function [%s]\n",
+                           pass_name, func_name);
+        }
+        struct register_pass_info pass_data = {pass_to_insert, next->name, 1,
+                                               PASS_POS_INSERT_BEFORE};
+
+        char *subpass_name = strtok(NULL, "\n");
+        opt_pass *prev_sub = NULL;
+        while ((subpass_name != NULL) && (subpass_name[0] == '>')) {
+            opt_pass *subpass = pass_by_name(subpass_name + 1);
+            if (subpass == NULL) {
+                internal_error(
+                    "dynamic replace plugin pass received an unknown "
+                    "pass name [%s] in function [%s]\n",
+                    pass_name, func_name);
+            }
+            if (pass_to_insert->sub == NULL) {
+                pass_to_insert->sub = subpass;
+            } else {
+                prev_sub->next = subpass;
+            }
+            prev_sub = subpass;
+
+            subpass_name = strtok(NULL, "\n");
+        }
+
+        register_callback("dynamic_replace_plugin", PLUGIN_PASS_MANAGER_SETUP,
+                          NULL, &pass_data);
+        pass_name = subpass_name;
+    }
+
+    memset(input_buf, 0, 4096);
 
     return 0;
 }

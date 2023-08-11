@@ -1,26 +1,28 @@
 //! GCC phase reordering experiment plugin source
 
-#include "stdio.h"
-#include "string.h"
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
 
 #include "gcc-plugin.h"
-#include "plugin-version.h"
 
-#include "tree-pass.h"
 #include "context.h"
-#include "pass_manager.h"
 #include "function.h"
+#include "pass_manager.h"
+#include "plugin-version.h"
+#include "tree-pass.h"
 
 #include "callbacks.h"
-#include "plugin_passes.h"
 #include "pass_makers.h"
+#include "plugin_passes.h"
 
-extern char *concat(const char*, ...);
+extern char *concat(const char *, ...);
 extern opt_pass *current_pass;
-extern gcc::context* g;
+extern gcc::context *g;
 
 static struct plugin_info plugin_name = {"0.1", "GCC pass reorder experiment"};
-
 
 /// Inserts marker pass in reference to any pass in pass tree, postfix arg
 /// append marker pass name to allow creation of unique passes
@@ -162,8 +164,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
         if (!strcmp(plugin_info->argv[i].key, "dump_format")) {
             if (!strcmp(plugin_info->argv[i].value, "short")) {
                 register_callback(plugin_info->base_name, PLUGIN_OVERRIDE_GATE,
-                                  callbacks::pass_dump_short,
-                                  NULL);
+                                  callbacks::pass_dump_short, NULL);
             } else if (!strcmp(plugin_info->argv[i].value, "long")) {
                 register_callback(plugin_info->base_name, PLUGIN_OVERRIDE_GATE,
                                   callbacks::pass_dump, NULL);
@@ -183,8 +184,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
                                    "*warn_unused_result",
                                    PASS_POS_INSERT_BEFORE, 1);
                 register_callback(plugin_info->base_name, PLUGIN_OVERRIDE_GATE,
-                                  callbacks::clear_pass_tree,
-                                  NULL);
+                                  callbacks::clear_pass_tree, NULL);
             } else if (!strcmp(plugin_info->argv[i].value, "by_marker")) {
                 for (int j = 0; j < plugin_info->argc; j++) {
                     if (!strcmp(plugin_info->argv[j].key, "mark_pass_before")) {
@@ -205,8 +205,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
                     }
                 }
                 register_callback(plugin_info->base_name, PLUGIN_OVERRIDE_GATE,
-                                  callbacks::clear_pass_tree,
-                                  NULL);
+                                  callbacks::clear_pass_tree, NULL);
             } else {
                 fprintf(stderr, "Incorrect plugin pass_reorder value\n");
                 return -1;
@@ -228,6 +227,51 @@ int plugin_init(struct plugin_name_args *plugin_info,
                     }
                 }
             }
+        }
+
+        if (!strcmp(plugin_info->argv[i].key, "dyn_replace")) {
+            int gcc_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+            if (gcc_socket == -1) {
+                fprintf(stderr, "plugin failed to create socket\n");
+                return -1;
+            }
+
+            struct sockaddr_un socket_addr;
+            socket_addr.sun_family = AF_UNIX;
+            strcpy(socket_addr.sun_path, "gcc_plugin.soc");
+            if (bind(gcc_socket, reinterpret_cast<sockaddr *>(&socket_addr),
+                     sizeof(socket_addr)) == -1) {
+                fprintf(stderr, "plugin failed to bind socket, errno [%d]\n", errno);
+                return -1;
+            }
+
+            struct pass_data list_insert_pass_data = {
+                opt_pass_type::GIMPLE_PASS,
+                "dynamic_list_insert",
+                OPTGROUP_NONE,
+                TV_NONE,
+                0,
+                0,
+                0,
+                0,
+                0,
+            };
+            opt_pass *list_insert_pass =
+                new list_recv_pass(list_insert_pass_data, g, gcc_socket);
+            struct register_pass_info list_insert_info = {
+                list_insert_pass,
+                "*strip_predict_hints",
+                1,
+                PASS_POS_INSERT_AFTER,
+            };
+
+            register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
+                              NULL, &list_insert_info);
+            insert_marker_pass(plugin_info, opt_pass_type::GIMPLE_PASS,
+                               "local-pure-const", PASS_POS_INSERT_AFTER, 201,
+                               "_end_list2");
+            register_callback(plugin_info->base_name, PLUGIN_FINISH,
+                              callbacks::compilation_end, NULL);
         }
 
         // print help
@@ -285,4 +329,3 @@ int plugin_init(struct plugin_name_args *plugin_info,
     }
     return 0;
 }
-

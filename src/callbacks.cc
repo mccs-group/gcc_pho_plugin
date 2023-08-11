@@ -63,3 +63,9 @@ void callbacks::pass_exec(void *gcc_data, void *used_data)
 {
     printf("%s\n", current_pass->name);
 };
+
+/// Clean up after everything is finished
+void callbacks::compilation_end(void *gcc_data, void *user_data)
+{
+    unlink("gcc_plugin.soc");
+}
