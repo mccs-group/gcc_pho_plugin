@@ -4,8 +4,6 @@
 
 rtl_character::rtl_character()
 {
-    std::cout << "waste" << std::endl;
-    test_p = (int *)xcalloc(4, 655360);
     #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   names.push_back(NAME);
     #include "rtl.def"
     #undef DEF_RTL_EXPR
@@ -41,62 +39,62 @@ void rtl_character::count_instr(enum rtx_class exp_class, enum rtx_code exp_code
 {
     if (exp_class == RTX_COMPARE || exp_class == RTX_COMM_COMPARE)
     {
-        characteristics[autophase_embed::ICMP]++;
+        characteristics[rtl_autophase_embed::ICMP]++;
         return;
     }
 
     switch(exp_code)
     {
         case rtx_code::PLUS:
-            characteristics[autophase_embed::ADD]++;
+            characteristics[rtl_autophase_embed::ADD]++;
             break;
         case rtx_code::SS_PLUS:
         case rtx_code::US_PLUS:
-            characteristics[autophase_embed::ADD]++;
+            characteristics[rtl_autophase_embed::ADD]++;
             break;
         case rtx_code::MINUS:
         case rtx_code::SS_MINUS:
         case rtx_code::US_MINUS:
-            characteristics[autophase_embed::SUB]++;
+            characteristics[rtl_autophase_embed::SUB]++;
             break;
         case rtx_code::MULT:
         case rtx_code::SS_MULT:
         case rtx_code::US_MULT:
-            characteristics[autophase_embed::MUL]++;
+            characteristics[rtl_autophase_embed::MUL]++;
             break;
         case rtx_code::AND:
-            characteristics[autophase_embed::AND]++;
+            characteristics[rtl_autophase_embed::AND]++;
             break;
         case rtx_code::IOR:
-            characteristics[autophase_embed::OR]++;
+            characteristics[rtl_autophase_embed::OR]++;
             break;
         case rtx_code::XOR:
-            characteristics[autophase_embed::XOR]++;
+            characteristics[rtl_autophase_embed::XOR]++;
             break;
         case rtx_code::CALL:
-            characteristics[autophase_embed::CALL]++;
+            characteristics[rtl_autophase_embed::CALL]++;
             break;
         case rtx_code::RETURN:
-            characteristics[autophase_embed::RET]++;
+            characteristics[rtl_autophase_embed::RET]++;
             break;
         case rtx_code::LSHIFTRT:
-            characteristics[autophase_embed::LSHR]++;
+            characteristics[rtl_autophase_embed::LSHR]++;
             break;
         case rtx_code::ASHIFTRT:
-            characteristics[autophase_embed::ASHR]++;
+            characteristics[rtl_autophase_embed::ASHR]++;
             break;
         case rtx_code::TRUNCATE:
         case rtx_code::FLOAT_TRUNCATE:
-            characteristics[autophase_embed::TRUNC]++;
+            characteristics[rtl_autophase_embed::TRUNC]++;
             break;
         case rtx_code::VEC_SELECT:
-            characteristics[autophase_embed::SELECT]++;
+            characteristics[rtl_autophase_embed::SELECT]++;
             break;
         case rtx_code::SIGN_EXTEND:
-            characteristics[autophase_embed::SEXT]++;
+            characteristics[rtl_autophase_embed::SEXT]++;
             break;
         case rtx_code::ZERO_EXTEND:
-            characteristics[autophase_embed::ZEXT]++;
+            characteristics[rtl_autophase_embed::ZEXT]++;
             break;
         default:
             break;

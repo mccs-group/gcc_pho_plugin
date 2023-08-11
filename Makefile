@@ -40,10 +40,10 @@ PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_optimized
 preproc_gimple: $(AUTOP_PLUGIN_SOURCES) $(INCLUDE_DIR)/autophase_plugin.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -E $(SRC_DIR)/gimple_character.cc > plugin.preproc
 
-$(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc
+$(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc $(INCLUDE_DIR)/gimple_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
-$(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc
+$(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc $(INCLUDE_DIR)/rtl_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 $(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc
@@ -65,11 +65,6 @@ test_bzip2: autophase_plugin.so $(TEST_SRC_DIR)/bzip2d/blocksort.c
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -fdump-tree-optimized -fdump-rtl-dfinish -c $(TEST_SRC_DIR)/bzip2d/blocksort.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
 
 $(SRC_DIR)/autophase_plugin.cc : $(INCLUDE_DIR)/autophase_plugin.hh $(INCLUDE_DIR)/gimple_character.hh $(INCLUDE_DIR)/rtl_character.hh
-
-$(SRC_DIR)/gimple_character.cc : $(INCLUDE_DIR)/gimple_character.hh
-
-$(SRC_DIR)/rtl_character.cc : $(INCLUDE_DIR)/rtl_character.hh
-
 
 clean_obj:
 	rm obj/*

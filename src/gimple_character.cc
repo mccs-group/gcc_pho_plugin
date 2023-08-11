@@ -20,7 +20,11 @@ static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_st
         #undef DEFGSCODE
     }
     gimple *gs = gsi_stmt (*i);
+
+    #if DEBUG_PRINTS
     std::cout << "In stmt " << walk_debug[int(gimple_code (gs))] << std::endl;
+    #endif
+
     gimple_character* characterisator = reinterpret_cast<gimple_character*>(wi->info);
     characterisator->parse_stmt(gs);
 
@@ -29,6 +33,7 @@ static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_st
 
 static tree count_op(tree* node, int* smth, void* wi)
 {
+    #if DEBUG_PRINTS
     static std::vector<std::string>  tree_debug {};
 
     if (tree_debug.empty())
@@ -39,17 +44,21 @@ static tree count_op(tree* node, int* smth, void* wi)
         #undef DEFTREECODE
         #undef END_OF_BASE_TREE_CODES
     }
+    #endif
+
     enum tree_code code = TREE_CODE(*node);
     enum tree_code_class code_class = tree_code_type[code];
 
+    #if DEBUG_PRINTS
     std::cout << "In op (" << tree_debug[int(code)] << ")";
 
     if (get_name(*node))
         std::cout << " with name " << get_name(*node);
 
     std::cout << " with code " << code << std::endl;
-    gimple_character* characterisator = reinterpret_cast<gimple_character*>((reinterpret_cast<walk_stmt_info*>(wi))->info);
+    #endif
 
+    gimple_character* characterisator = reinterpret_cast<gimple_character*>((reinterpret_cast<walk_stmt_info*>(wi))->info);
     characterisator->parse_node(*node);
 
     return NULL;
@@ -58,6 +67,8 @@ static tree count_op(tree* node, int* smth, void* wi)
 
 gimple_character::gimple_character()
 {
+    #if DEBUG_PRINTS
+
     #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
     #include "gimple.def"
     #undef DEFGSCODE
@@ -68,10 +79,11 @@ gimple_character::gimple_character()
     #undef DEFTREECODE
     #undef END_OF_BASE_TREE_CODES
 
+    #endif
+
     // std::cout << "size " << tree_node_names.size() << std::endl;
     walk_info.pset = new hash_set<tree>;
     walk_info.info = this;
-    std::cout << "size " << walk_info.pset->elements() << std::endl;
     reset();
 }
 
@@ -270,6 +282,7 @@ void gimple_character::get_stmt_def_use(gimple* gs)
 
     FOR_EACH_SSA_TREE_OPERAND (var, gs, ssa_iter, SSA_OP_DEF)
     {
+        #if DEBUG_PRINTS
         print_generic_expr (stdout, var, TDF_SLIM);
         dump_ssaname_info_to_file(stdout, var, 0);
         std::cout << std::endl;
@@ -295,6 +308,7 @@ void gimple_character::get_stmt_def_use(gimple* gs)
             std::cout << '_' << SSA_NAME_VERSION(var) << " is " << gimple_stmt_names[(gimple_code (stmt))] << " id : " << stmt->uid << std::endl;
         }
 
+        #endif
 
     }
 }
@@ -313,15 +327,22 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
         autophase_embeddings[gimple_autophase_embed::INSTRUCTIONS]++;
 
+        #if DEBUG_PRINTS
         // std::cout << int(code) << ' ' << gimple_stmt_names[int(code)] << " code" << std::endl;
+        #endif
+
         current_instr_count = 0;
 
         // get_stmt_def_use(gs);
         walk_gimple_stmt(&i, count_stmt, count_op, &walk_info);
         if (in_binary)
             in_binary = false;
+
+        #if DEBUG_PRINTS
         // std::cout << "---parsed stmt---" << std::endl;
         // std::cout << "after walking: " << walk_info.pset->elements() << std::endl;
+        #endif
+
         reset_pset();
 
         first_stmt = false;
@@ -330,13 +351,18 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
 unsigned int gimple_character::parse_function(function * fun)
 {
+    #if DEBUG_PRINTS
     std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
+    #endif
 
     basic_block bb;
 
     FOR_ALL_BB_FN(bb, fun)
     {
+        #if DEBUG_PRINTS
         std::cout << "---------bb_" << bb->index << "_start--------" << std::endl;
+        #endif
+
         autophase_embeddings[gimple_autophase_embed::BB_COUNT]++;
         current_bb_phi_args = 0;
         current_bb_phi_count = 0;
@@ -455,8 +481,9 @@ unsigned int gimple_character::parse_function(function * fun)
                 break;
         }
 
+        #if DEBUG_PRINTS
         std::cout << "---------bb_" << bb->index << "_end--------" << std::endl;
-
+        #endif
     }
 
     send_characterisation(fun);

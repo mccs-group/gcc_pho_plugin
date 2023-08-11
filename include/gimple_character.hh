@@ -28,12 +28,15 @@
 
 #include "ssa-iterators.h"
 
+#define DEBUG_PRINTS 0
+
 // #define DEFGSCODE(SYM, STRING, STRUCT)	walk_debug.push_back(STRING);
 // #include "gimple.def"
 // #undef DEFGSCODE
 
 class gimple_character
 {
+public:
     enum gimple_autophase_embed
     {
         BRANCHES = 0,
@@ -98,8 +101,13 @@ class gimple_character
         CHARACTERISTICS_AMOUNT,
     };
 
+private:
+
+    #if DEBUG_PRINTS
     std::vector<std::string> gimple_stmt_names;
     std::vector<std::string> tree_node_names;
+    #endif
+
     std::array<int, CHARACTERISTICS_AMOUNT> autophase_embeddings = {0};
 
     int current_bb_phi_args = 0;
@@ -134,6 +142,8 @@ public:
 
     void reset();
     void reset_pset();
+
+    int* data() { return autophase_embeddings.data(); }
 
     unsigned int parse_function(function * fun);
 };

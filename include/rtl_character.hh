@@ -15,7 +15,8 @@
 
 class rtl_character
 {
-    enum autophase_embed
+public:
+    enum rtl_autophase_embed
     {
         BRANCHES = 0,
         UNARY_INSTR,
@@ -62,6 +63,7 @@ class rtl_character
         CHARACTERISTICS_AMOUNT,
     };
 
+private:
     std::vector<std::string> names;
     std::vector<int> inst_count;
     std::array<int, 3> bb_pred_statistics;
