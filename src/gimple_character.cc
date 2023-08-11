@@ -9,8 +9,51 @@
 #include <sstream>
 #include <functional>
 
-static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_stmt_info* optional);
-static tree count_op(tree* node, int* smth, void* wi);
+static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_stmt_info* wi)
+{
+    static std::vector<std::string>  walk_debug {};
+
+    if (walk_debug.empty())
+    {
+        #define DEFGSCODE(SYM, STRING, STRUCT)	walk_debug.push_back(STRING);
+        #include "gimple.def"
+        #undef DEFGSCODE
+    }
+    gimple *gs = gsi_stmt (*i);
+    std::cout << "In stmt " << walk_debug[int(gimple_code (gs))] << std::endl;
+    gimple_character* characterisator = reinterpret_cast<gimple_character*>(wi->info);
+    characterisator->parse_stmt(gs);
+
+    return NULL;
+}
+
+static tree count_op(tree* node, int* smth, void* wi)
+{
+    static std::vector<std::string>  tree_debug {};
+
+    if (tree_debug.empty())
+    {
+        #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_debug.push_back(STRING);
+        #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
+        #include "all-tree.def"
+        #undef DEFTREECODE
+        #undef END_OF_BASE_TREE_CODES
+    }
+    enum tree_code code = TREE_CODE(*node);
+    enum tree_code_class code_class = tree_code_type[code];
+
+    std::cout << "In op (" << tree_debug[int(code)] << ")";
+
+    if (get_name(*node))
+        std::cout << " with name " << get_name(*node);
+
+    std::cout << " with code " << code << std::endl;
+    gimple_character* characterisator = reinterpret_cast<gimple_character*>((reinterpret_cast<walk_stmt_info*>(wi))->info);
+
+    characterisator->parse_node(*node);
+
+    return NULL;
+}
 
 void gimple_character::parse_node(tree node)
 {
@@ -91,9 +134,6 @@ void gimple_character::parse_tree_code(tree_code code)
         case tree_code::LSHIFT_EXPR:
             autophase_embeddings[gimple_autophase_embed::SHL]++;
             break;
-        case tree_code::RSHIFT_EXPR:
-            autophase_embeddings[gimple_autophase_embed::SHR]++;
-            break;
         case tree_code::MEM_REF:
         case tree_code::TARGET_MEM_REF:
             autophase_embeddings[gimple_autophase_embed::MEMORY_INSTR]++;
@@ -149,6 +189,14 @@ void gimple_character::parse_assign(gimple* gs)
     enum tree_code rhs_code = gimple_assign_rhs_code(gs);
     if (!(get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS))
     {
+        if (rhs_code == RSHIFT_EXPR)
+        {
+            if (TYPE_UNSIGNED(TREE_TYPE(gimple_assign_rhs1(gs))))
+                autophase_embeddings[gimple_autophase_embed::LSHR]++;
+            else
+                autophase_embeddings[gimple_autophase_embed::ASHR]++;
+        }
+
         current_instr_count++;
         save_statistics(rhs_code, tree_code_type[rhs_code]);
     }
@@ -188,50 +236,47 @@ void gimple_character::parse_stmt(gimple *gs)
     return;
 }
 
-static tree count_stmt(gimple_stmt_iterator* i, bool* handled_op, struct walk_stmt_info* wi)
+void gimple_character::get_stmt_def_use(gimple* gs)
 {
-    static std::vector<std::string>  walk_debug {};
+    ssa_op_iter ssa_iter;
+    tree var;
+    gimple* stmt;
 
-    if (walk_debug.empty())
+    // if (POINTER_TYPE_P (TREE_TYPE (node)) && SSA_NAME_PTR_INFO (node))
+    // {
+    //     unsigned int align, misalign;
+    //     struct ptr_info_def *pi = SSA_NAME_PTR_INFO (node);
+    // }
+
+    FOR_EACH_SSA_TREE_OPERAND (var, gs, ssa_iter, SSA_OP_DEF)
     {
-        #define DEFGSCODE(SYM, STRING, STRUCT)	walk_debug.push_back(STRING);
-        #include "gimple.def"
-        #undef DEFGSCODE
+        print_generic_expr (stdout, var, TDF_SLIM);
+        dump_ssaname_info_to_file(stdout, var, 0);
+        std::cout << std::endl;
+        imm_use_iterator use_it;
+        const char* ssa_var_name = get_name(var);
+
+        std::cout << "let me tell you smth about ";
+        if (ssa_var_name)
+            std::cout << get_name(var);
+        std::cout << '_' << SSA_NAME_VERSION (var) << std::endl;
+        
+
+        gimple* def_stmt = SSA_NAME_DEF_STMT(var);
+        if (!def_stmt)
+            std::cout << "could not find def" << std::endl;
+        std::cout << "defined by " << gimple_stmt_names[gimple_code (def_stmt)] << " id : " << def_stmt->uid << std::endl;
+
+        FOR_EACH_IMM_USE_STMT (stmt, use_it, var)
+        {
+            std::cout << "user of ";
+            if (ssa_var_name)
+                std::cout << ssa_var_name;
+            std::cout << '_' << SSA_NAME_VERSION(var) << " is " << gimple_stmt_names[(gimple_code (stmt))] << " id : " << stmt->uid << std::endl;
+        }
+
+
     }
-    gimple *gs = gsi_stmt (*i);
-    // std::cout << "In stmt " << walk_debug[int(gimple_code (gs))] << std::endl;
-    gimple_character* characterisator = reinterpret_cast<gimple_character*>(wi->info);
-    characterisator->parse_stmt(gs);
-
-    return NULL;
-}
-
-static tree count_op(tree* node, int* smth, void* wi)
-{
-    static std::vector<std::string>  tree_debug {};
-
-    if (tree_debug.empty())
-    {
-        #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_debug.push_back(STRING);
-        #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
-        #include "all-tree.def"
-        #undef DEFTREECODE
-        #undef END_OF_BASE_TREE_CODES
-    }
-    enum tree_code code = TREE_CODE(*node);
-    enum tree_code_class code_class = tree_code_type[code];
-
-    // std::cout << "In op (" << tree_debug[int(code)] << ")";
-
-    // if (get_name(*node))
-    //     std::cout << " with name " << get_name(*node);
-
-    // std::cout << " with code " << code << std::endl;
-    gimple_character* characterisator = reinterpret_cast<gimple_character*>((reinterpret_cast<walk_stmt_info*>(wi))->info);
-
-    characterisator->parse_node(*node);
-
-    return NULL;
 }
 
 void gimple_character::parse_gimple_seq(gimple_seq seq)
@@ -244,19 +289,20 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
         gimple *gs = gsi_stmt (i);
         enum gimple_code code = gimple_code (gs);
 
-        walk_info.info = this;
-        walk_info.pset = new hash_set<tree>; // traverse with remove instead of allocating each time?
+        // std::cout << "before walking: " << walk_info.pset->elements() << std::endl;
 
-        statement_amount[int(code)]++;
         autophase_embeddings[gimple_autophase_embed::INSTRUCTIONS]++;
 
         // std::cout << int(code) << ' ' << gimple_stmt_names[int(code)] << " code" << std::endl;
         current_instr_count = 0;
+
+        // get_stmt_def_use(gs);
         walk_gimple_stmt(&i, count_stmt, count_op, &walk_info);
         if (in_binary)
             in_binary = false;
         // std::cout << "---parsed stmt---" << std::endl;
-        delete walk_info.pset;
+        // std::cout << "after walking: " << walk_info.pset->elements() << std::endl;
+        reset_pset();
 
         first_stmt = false;
     }
@@ -264,12 +310,13 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
 unsigned int gimple_character::parse_function(function * fun)
 {
-    // std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
+    std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
 
     basic_block bb;
 
     FOR_ALL_BB_FN(bb, fun)
     {
+        std::cout << "---------bb_" << bb->index << "_start--------" << std::endl;
         autophase_embeddings[gimple_autophase_embed::BB_COUNT]++;
         current_bb_phi_args = 0;
         current_bb_phi_count = 0;
@@ -334,16 +381,9 @@ unsigned int gimple_character::parse_function(function * fun)
                 autophase_embeddings[CRIT_EDGES]++;
             bb_suc++;
             autophase_embeddings[EDGES]++;
-
         }
 
-        edge pred_e;
-        edge_iterator pred_ei;
-
-        FOR_EACH_EDGE(pred_e, pred_ei, bb->succs)
-        {
-            bb_pred++;
-        }
+        bb_pred = vec_safe_length(bb->preds);
 
         switch(bb_pred)
         {
@@ -395,17 +435,32 @@ unsigned int gimple_character::parse_function(function * fun)
                 break;
         }
 
+        std::cout << "---------bb_" << bb->index << "_end--------" << std::endl;
+
     }
 
     send_characterisation(fun);
-    std::fill(autophase_embeddings.begin(), autophase_embeddings.end(), 0);
+    reset();
 
     // std::cout << "============" << std::endl;
 
-    // std::cout << one_succ << ' ' << two_succ << ' ' << multiple_succ << std::endl;
-    // std::cout << one_pred << ' ' << two_pred << ' ' << multiple_pred << std::endl;
-
     return 0;
+}
+
+static bool clear_hash_set(const hash_set<tree>::Key& key, hash_set<tree>* set)
+{
+    set->remove(key);
+    return true;
+}
+
+void gimple_character::reset_pset()
+{
+    walk_info.pset->traverse<hash_set<tree>*, clear_hash_set>(walk_info.pset);
+}
+
+void gimple_character::reset()
+{
+    std::fill(autophase_embeddings.begin(), autophase_embeddings.end(), 0);
 }
 
 void gimple_character::send_characterisation(function* fun)
@@ -413,7 +468,7 @@ void gimple_character::send_characterisation(function* fun)
     std::stringstream name;
     name << "fun_" << get_name(fun->decl);
 
-    std::ofstream dump_stream(name.str(), std::ios_base::out | std::ios_base::app);
+    std::ofstream dump_stream(name.str(), std::ios_base::out);
     for (int i = 0; i < autophase_embeddings.size(); i++)
         dump_stream << i << ' ' << autophase_embeddings[i] << " | ";
 }

@@ -59,6 +59,7 @@ class gimple_character
 
         BB_PHI_ARGS_GT_5,
         BB_PHI_ARGS_LESS_5,
+        PHI_TOTAL_ARGS,
         BB_PHI_NO,
         BB_PHI_03,
         BB_PHI_HI,
@@ -85,7 +86,8 @@ class gimple_character
         ZERO_COUNT,
         ONE_COUNT,
 
-        SHR,
+        ASHR,
+        LSHR,
         SHL,
 
         ADD,
@@ -111,7 +113,6 @@ class gimple_character
 
     std::vector<std::string> gimple_stmt_names;
     std::vector<std::string> tree_node_names;
-    std::vector<int> statement_amount;
     std::array<int, CHARACTERISTICS_AMOUNT> autophase_embeddings = {0};
 
     int current_bb_phi_args = 0;
@@ -121,6 +122,7 @@ class gimple_character
 
     walk_stmt_info walk_info;
     bool in_binary = false;
+    bool in_rshisft = false;
 
 public:
     gimple_character()
@@ -136,7 +138,10 @@ public:
         #undef END_OF_BASE_TREE_CODES
 
         // std::cout << "size " << tree_node_names.size() << std::endl;
-        statement_amount.resize(gimple_stmt_names.size());
+        walk_info.pset = new hash_set<tree>;
+        walk_info.info = this;
+        std::cout << "size " << walk_info.pset->elements() << std::endl;
+        reset();
     }
 
     void send_characterisation(function* fun);
@@ -154,6 +159,11 @@ public:
 
     void parse_stmt(gimple *gs);
     void parse_node(tree node);
+
+    void get_stmt_def_use(gimple* gs);
+
+    void reset();
+    void reset_pset();
 
     unsigned int parse_function(function * fun);
 };
