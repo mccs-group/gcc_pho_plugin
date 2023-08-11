@@ -55,6 +55,26 @@ static tree count_op(tree* node, int* smth, void* wi)
     return NULL;
 }
 
+
+gimple_character::gimple_character()
+{
+    #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
+    #include "gimple.def"
+    #undef DEFGSCODE
+
+    #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_node_names.push_back(STRING);
+    #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
+    #include "all-tree.def"
+    #undef DEFTREECODE
+    #undef END_OF_BASE_TREE_CODES
+
+    // std::cout << "size " << tree_node_names.size() << std::endl;
+    walk_info.pset = new hash_set<tree>;
+    walk_info.info = this;
+    std::cout << "size " << walk_info.pset->elements() << std::endl;
+    reset();
+}
+
 void gimple_character::parse_node(tree node)
 {
     if (integer_zerop(node))

@@ -6,8 +6,7 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
-// #include "gimple_dumper.hh"
-// #include "rtl_dumper.hh"
+#include "autophase_plugin.hh"
 
 /// Symbol required by GCC
 int plugin_is_GPL_compatible;

@@ -32,19 +32,6 @@
 // #include "gimple.def"
 // #undef DEFGSCODE
 
-const pass_data gimple_character_data =
-{
-    GIMPLE_PASS,
-    "gimple_character",
-    OPTGROUP_NONE,
-    TV_NONE,
-    PROP_gimple_any,
-    0,
-    0,
-    0,
-    0
-};
-
 class gimple_character
 {
     enum gimple_autophase_embed
@@ -125,24 +112,7 @@ class gimple_character
     bool in_rshisft = false;
 
 public:
-    gimple_character()
-    {
-        #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
-        #include "gimple.def"
-        #undef DEFGSCODE
-
-        #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_node_names.push_back(STRING);
-        #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
-        #include "all-tree.def"
-        #undef DEFTREECODE
-        #undef END_OF_BASE_TREE_CODES
-
-        // std::cout << "size " << tree_node_names.size() << std::endl;
-        walk_info.pset = new hash_set<tree>;
-        walk_info.info = this;
-        std::cout << "size " << walk_info.pset->elements() << std::endl;
-        reset();
-    }
+    gimple_character();
 
     void send_characterisation(function* fun);
 
@@ -167,18 +137,5 @@ public:
 
     unsigned int parse_function(function * fun);
 };
-
-class gimple_character_pass: public gimple_opt_pass
-{
-    gimple_character characteriser;
-
-public:
-    gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
-    {}
-    opt_pass* clone() override {return this;}
-
-    virtual unsigned int execute (function* fun) override { return characteriser.parse_function(fun); }
-};
-
 
 #endif

@@ -1,6 +1,17 @@
 
 #include "rtl_character.hh"
 
+
+rtl_character::rtl_character()
+{
+    std::cout << "waste" << std::endl;
+    test_p = (int *)xcalloc(4, 655360);
+    #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   names.push_back(NAME);
+    #include "rtl.def"
+    #undef DEF_RTL_EXPR
+    inst_count.resize(names.size());
+}
+
 void rtl_character::parse_insn(rtx_def* insn)
 {
     // std::cout << "inside insn: " << names[GET_CODE(PATTERN(insn))] << std::endl;

@@ -13,19 +13,6 @@
 #include "tree-pass.h"
 #include "rtl.h"
 
-
-const pass_data rtl_character_data = {
-			RTL_PASS,
-			"rtl_character",
-			OPTGROUP_NONE,
-			TV_PLUGIN_INIT,
-			0,
-			0,
-			0,
-			0,
-			0,
-		};
-
 class rtl_character
 {
     enum autophase_embed
@@ -91,15 +78,7 @@ class rtl_character
 
 public:
     bool to_dump = false;
-    rtl_character()
-    {
-        std::cout << "waste" << std::endl;
-        test_p = (int *)xcalloc(4, 655360);
-        #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   names.push_back(NAME);
-        #include "rtl.def"
-        #undef DEF_RTL_EXPR
-        inst_count.resize(names.size());
-    }
+    rtl_character();
 
     void parse_insn(rtx_def* insn);
     void parse_set_expr(rtx_def* exp);
@@ -118,18 +97,6 @@ private:
     void safe_statistics(rtx_def* exp);
 };
 
-class rtl_character_pass : public rtl_opt_pass
-{
-    rtl_character characteriser;
 
-    public:
-    rtl_character_pass(gcc::context* g) : rtl_opt_pass(rtl_character_data, g)
-    {}
-    opt_pass* clone() override {return this;}
-
-    void set_dump(bool flag) {characteriser.to_dump = flag;}
-
-    virtual unsigned int execute (function* fun) override { return characteriser.parse_function(fun); }
-};
 
 #endif
