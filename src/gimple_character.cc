@@ -507,7 +507,7 @@ int* gimple_character::parse_function(function * fun)
         #endif
     }
 
-    send_characterisation(fun);
+    // send_characterisation(fun);
     // reset();
 
     #if DEBUG_PRINTS
