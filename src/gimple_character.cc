@@ -190,6 +190,7 @@ void gimple_character::parse_phi(gimple* gs)
 {
     // std::cout << "in phi" << std::endl;
     autophase_embeddings[gimple_autophase_embed::PHI]++;
+    autophase_embeddings[gimple_autophase_embed::PHI_TOTAL_ARGS] += gimple_phi_num_args(gs);
     current_bb_phi_args += gimple_phi_num_args(gs);
     current_bb_phi_count++;
 }
@@ -219,6 +220,25 @@ void gimple_character::parse_assign(gimple* gs)
         autophase_embeddings[gimple_autophase_embed::STORE]++;
 
     enum tree_code rhs_code = gimple_assign_rhs_code(gs);
+    #if DEBUG_PRINTS
+    // if (gimple_assign_load_p(gs))
+    // {
+    //     std::cout << "load" << std::endl;
+    //     print_gimple_stmt(stdout, gs, 0, TDF_SLIM);
+    // }
+    // if (gimple_store_p(gs))
+    // {
+    //     std::cout << "store" << std::endl;
+    //     print_gimple_stmt(stdout, gs, 0, TDF_SLIM);
+    // }
+
+    // if ((rhs_code == MEM_REF) || (rhs_code == TARGET_MEM_REF)
+    //     || (TREE_CODE(gimple_assign_lhs(gs)) == MEM_REF) || (TREE_CODE(gimple_assign_lhs(gs)) == TARGET_MEM_REF) )
+    //     print_gimple_stmt(stdout, gs, 0, TDF_SLIM);
+
+    #endif
+
+
     if (!(get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS))
     {
         if (rhs_code == RSHIFT_EXPR)
@@ -228,6 +248,7 @@ void gimple_character::parse_assign(gimple* gs)
             else
                 autophase_embeddings[gimple_autophase_embed::ASHR]++;
         }
+
 
         current_instr_count++;
         save_statistics(rhs_code, tree_code_type[rhs_code]);
@@ -489,7 +510,9 @@ unsigned int gimple_character::parse_function(function * fun)
     send_characterisation(fun);
     reset();
 
-    // std::cout << "============" << std::endl;
+    #if DEBUG_PRINTS
+    std::cout << "============" << std::endl;
+    #endif
 
     return 0;
 }
