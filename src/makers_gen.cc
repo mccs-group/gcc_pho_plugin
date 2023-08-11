@@ -16,13 +16,16 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	FILE* makers_file = fopen("pass_makers.cc", "w");
-	if (passes_file == NULL) {
-		fprintf(stderr, "Could not create file for makers\n");
-		fclose(passes_file);
-		return -1;
-	}
+	//FILE* makers_file = fopen("pass_makers.cc", "w");
+	//if (passes_file == NULL) {
+	//	fprintf(stderr, "Could not create file for makers\n");
+	//	fclose(passes_file);
+	//	return -1;
+	//}
+    
+    FILE* makers_file = stdout;
 
+    fprintf(makers_file, "#include \"pass_makers.h\"\n");
 	fprintf(makers_file, "opt_pass* pass_by_name(const char* name) {\n");
 	
 	char* line = NULL;
