@@ -1,10 +1,10 @@
 //! GCC phase reordering experiment plugin source
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <errno.h>
 
 #include "gcc-plugin.h"
 
@@ -17,6 +17,9 @@
 #include "callbacks.h"
 #include "pass_makers.h"
 #include "plugin_passes.h"
+
+/// Symbol required by GCC
+int plugin_is_GPL_compatible;
 
 extern char *concat(const char *, ...);
 extern opt_pass *current_pass;
@@ -151,6 +154,27 @@ static void insert_list_markers(struct plugin_name_args *plugin_info)
                        PASS_POS_INSERT_BEFORE, 1);
 }
 
+/// Create communication socket
+static int create_comm_socket()
+{
+    int gcc_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (gcc_socket == -1) {
+        fprintf(stderr, "plugin failed to create socket\n");
+        return -1;
+    }
+
+    struct sockaddr_un socket_addr;
+    socket_addr.sun_family = AF_UNIX;
+    strcpy(socket_addr.sun_path, "gcc_plugin.soc");
+    if (bind(gcc_socket, reinterpret_cast<sockaddr *>(&socket_addr),
+             sizeof(socket_addr)) == -1) {
+        fprintf(stderr, "plugin failed to bind socket, errno [%d]\n", errno);
+        return -1;
+    }
+
+    return gcc_socket;
+}
+
 /// Plugin initialization function, called by gcc to register plugin. Parses
 /// plugin arguments
 int plugin_init(struct plugin_name_args *plugin_info,
@@ -229,19 +253,36 @@ int plugin_init(struct plugin_name_args *plugin_info,
             }
         }
 
+        // setup dynamic per-function pass list replacement
         if (!strcmp(plugin_info->argv[i].key, "dyn_replace")) {
-            int gcc_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
+            int gcc_socket = create_comm_socket();
+
             if (gcc_socket == -1) {
-                fprintf(stderr, "plugin failed to create socket\n");
                 return -1;
             }
 
-            struct sockaddr_un socket_addr;
-            socket_addr.sun_family = AF_UNIX;
-            strcpy(socket_addr.sun_path, "gcc_plugin.soc");
-            if (bind(gcc_socket, reinterpret_cast<sockaddr *>(&socket_addr),
-                     sizeof(socket_addr)) == -1) {
-                fprintf(stderr, "plugin failed to bind socket, errno [%d]\n", errno);
+            struct sockaddr_un remote_addr;
+            remote_addr.sun_family = AF_UNIX;
+            bool rem_soc_found = false;
+            for (int j = 0; j < plugin_info->argc; j++) {
+                if (!strcmp(plugin_info->argv[j].key, "remote_socket")) {
+                    strcpy(remote_addr.sun_path, plugin_info->argv[j].value);
+                    rem_soc_found = true;
+                }
+            }
+
+            if (!rem_soc_found) {
+                fprintf(stderr,
+                        "remote socket for dyn pass replace not specified\n");
+                return -1;
+            }
+
+            if (connect(gcc_socket, reinterpret_cast<sockaddr *>(&remote_addr),
+                        sizeof(remote_addr)) == -1) {
+                fprintf(
+                    stderr,
+                    "plugin failed to connect to remote socket, errno [%d]\n",
+                    errno);
                 return -1;
             }
 
@@ -272,6 +313,36 @@ int plugin_init(struct plugin_name_args *plugin_info,
                                "_end_list2");
             register_callback(plugin_info->base_name, PLUGIN_FINISH,
                               callbacks::compilation_end, NULL);
+
+            if ((plugin_info->argv[i].value != NULL) &&
+                (!strcmp(plugin_info->argv[i].value, "learning"))) {
+                // initialize passes for learning
+                struct pass_data name_send_pass_data = {
+                    opt_pass_type::GIMPLE_PASS,
+                    "func_name_send",
+                    OPTGROUP_NONE,
+                    TV_NONE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                };
+                opt_pass *name_send_pass = new func_name_send_pass(
+                    list_insert_pass_data, g, gcc_socket);
+                struct register_pass_info name_send_info = {
+                    name_send_pass,
+                    "dynamic_list_insert",
+                    1,
+                    PASS_POS_INSERT_BEFORE,
+                };
+
+                register_callback(plugin_info->base_name,
+                                  PLUGIN_PASS_MANAGER_SETUP, NULL,
+                                  &name_send_info);
+            } else {
+                // initialize passes for inference
+            }
         }
 
         // print help

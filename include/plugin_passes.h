@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sys/socket.h>
+
 #include "context.h"
 #include "error.h"
 #include "gcc-plugin.h"
@@ -27,6 +29,20 @@ class list_recv_pass : public opt_pass {
     char *input_buf;
 
     opt_pass *clone() override { return new list_recv_pass(*this); }
+
+    unsigned int execute(function *fun) override;
+};
+
+class func_name_send_pass : public opt_pass {
+  public:
+    func_name_send_pass(const pass_data &data, gcc::context *g, int socket_fd)
+        : opt_pass(data, g), socket_fd{socket_fd}
+    {
+    }
+
+    int socket_fd;
+
+    opt_pass *clone() override { return new func_name_send_pass(*this); }
 
     unsigned int execute(function *fun) override;
 };

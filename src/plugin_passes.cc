@@ -14,11 +14,11 @@
 #include "pass_makers.h"
 #include "plugin_passes.h"
 
-/// Symbol required by GCC
-int plugin_is_GPL_compatible;
-
 static void delete_pass_tree(opt_pass *pass);
 
+/// This pass clears pass tree till the next nearest
+/// '*plugin_dummy_pass_end_list<num>' and fills it with passes received on
+/// socket
 unsigned int list_recv_pass::execute(function *fun)
 {
 
@@ -47,7 +47,6 @@ unsigned int list_recv_pass::execute(function *fun)
 
     char *func_name = input_buf;
     char *pass_list = input_buf + 100;
-
 
     if (strcmp(func_name, function_name(fun))) {
         internal_error("dynamic replace plugin pass received pass list for "
@@ -96,11 +95,19 @@ unsigned int list_recv_pass::execute(function *fun)
     return 0;
 }
 
+/// This pass only sends current function name (for identification when
+/// learning)
+unsigned int func_name_send_pass::execute(function *fun)
+{
+    const char *func_name = function_name(fun);
+    send(socket_fd, func_name, strlen(func_name), 0);
+    return 0;
+}
+
 /// Function to REALLY delete passes. Pass manager will still hold pointers
 /// to these passes (and it does not seem fixable without patching GCC itself),
 /// but does not use or free()/delete() them,
-/// unless -fdump-passes flag is used or toplev::finalize()
-/// is called in some other plugin (or newer gcc version)
+/// unless -fdump-passes flag is used
 static void delete_pass_tree(opt_pass *pass)
 {
     while (pass) {
