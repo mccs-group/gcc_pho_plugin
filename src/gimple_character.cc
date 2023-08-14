@@ -297,7 +297,6 @@ void gimple_character::get_stmt_def_use(gimple* gs)
 
     // if (POINTER_TYPE_P (TREE_TYPE (node)) && SSA_NAME_PTR_INFO (node))
     // {
-    //     unsigned int align, misalign;
     //     struct ptr_info_def *pi = SSA_NAME_PTR_INFO (node);
     // }
 

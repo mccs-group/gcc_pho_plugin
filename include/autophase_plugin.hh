@@ -8,8 +8,7 @@
 #include <string>
 #include <array>
 
-#include "gcc-plugin.h"
-
+#include "cfg_character.hh"
 #include "gimple_character.hh"
 #include "rtl_character.hh"
 
@@ -42,13 +41,20 @@ const pass_data rtl_character_data = {
 class gimple_character_pass: public gimple_opt_pass
 {
     gimple_character characteriser;
+    cfg_character cfg_char;
 
 public:
     gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
     {}
     opt_pass* clone() override {return this;}
 
-    virtual unsigned int execute (function* fun) override { characteriser.parse_function(fun); characteriser.reset(); return 0; }
+    virtual unsigned int execute (function* fun) override
+    {
+        // characteriser.parse_function(fun);
+        // characteriser.reset();
+        cfg_char.get_cfg_embed(fun);
+        return 0;
+    }
 };
 
 class rtl_character_pass : public rtl_opt_pass

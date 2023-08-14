@@ -14,7 +14,7 @@ INCLUDE_DIR = include
 
 CXX=g++
 
-PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O2 -I$(INCLUDE_DIR)
+PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) -Ithird_party/eigen-3.4.0 --std=c++17
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) -o $@
@@ -34,7 +34,7 @@ $(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h exter
 
 TEST_SRC_DIR = autophase_tests
 
-AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.cc
+AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.cc cfg_character.cc
 AUTOP_PLUGIN_SOURCES = $(addprefix $(SRC_DIR)/, $(AUTOP_PLUGIN_SRC_FILES))
 
 AUTOP_OBJECTS = $(AUTOP_PLUGIN_SRC_FILES:.cc=.o)
@@ -53,6 +53,9 @@ $(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc $(INCLUDE_DIR)/gi
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 $(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc $(INCLUDE_DIR)/rtl_character.hh
+	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
+
+$(OBJ_DIR)/cfg_character.o : $(SRC_DIR)/cfg_character.cc $(INCLUDE_DIR)/cfg_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 $(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc $(INCLUDE_DIR)/autophase_plugin.hh\

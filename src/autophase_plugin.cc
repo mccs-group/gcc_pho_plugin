@@ -1,8 +1,5 @@
 //! GCC phase reordering experiment plugin source
 
-#include "gimple_character.hh"
-#include "rtl_character.hh"
-
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
