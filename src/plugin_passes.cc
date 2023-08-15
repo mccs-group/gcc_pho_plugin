@@ -61,40 +61,44 @@ unsigned int list_recv_pass::execute(function *fun)
         next = pass;
     }
 
-    char *pass_name = strtok(pass_list, "\n");
-    while (pass_name) {
-        opt_pass *pass_to_insert = pass_by_name(pass_name);
-        if (pass_to_insert == NULL) {
-            internal_error("dynamic replace plugin pass received an unknown "
-                           "pass name [%s] in function [%s]\n",
-                           pass_name, func_name);
-        }
-        struct register_pass_info pass_data = {pass_to_insert, next->name, 1,
-                                               PASS_POS_INSERT_BEFORE};
-
-        char *subpass_name = strtok(NULL, "\n");
-        opt_pass *prev_sub = NULL;
-        while ((subpass_name != NULL) && (subpass_name[0] == '>')) {
-            opt_pass *subpass = pass_by_name(subpass_name + 1);
-            if (subpass == NULL) {
+    // This allows getting unoptimized embedding in learning mode
+    if (pass_list[0] != '?') {
+        char *pass_name = strtok(pass_list, "\n");
+        while (pass_name) {
+            opt_pass *pass_to_insert = pass_by_name(pass_name);
+            if (pass_to_insert == NULL) {
                 internal_error(
                     "dynamic replace plugin pass received an unknown "
                     "pass name [%s] in function [%s]\n",
                     pass_name, func_name);
             }
-            if (pass_to_insert->sub == NULL) {
-                pass_to_insert->sub = subpass;
-            } else {
-                prev_sub->next = subpass;
+            struct register_pass_info pass_data = {pass_to_insert, next->name,
+                                                   1, PASS_POS_INSERT_BEFORE};
+
+            char *subpass_name = strtok(NULL, "\n");
+            opt_pass *prev_sub = NULL;
+            while ((subpass_name != NULL) && (subpass_name[0] == '>')) {
+                opt_pass *subpass = pass_by_name(subpass_name + 1);
+                if (subpass == NULL) {
+                    internal_error(
+                        "dynamic replace plugin pass received an unknown "
+                        "pass name [%s] in function [%s]\n",
+                        pass_name, func_name);
+                }
+                if (pass_to_insert->sub == NULL) {
+                    pass_to_insert->sub = subpass;
+                } else {
+                    prev_sub->next = subpass;
+                }
+                prev_sub = subpass;
+
+                subpass_name = strtok(NULL, "\n");
             }
-            prev_sub = subpass;
 
-            subpass_name = strtok(NULL, "\n");
+            register_callback("dynamic_replace_plugin",
+                              PLUGIN_PASS_MANAGER_SETUP, NULL, &pass_data);
+            pass_name = subpass_name;
         }
-
-        register_callback("dynamic_replace_plugin", PLUGIN_PASS_MANAGER_SETUP,
-                          NULL, &pass_data);
-        pass_name = subpass_name;
     }
 
     memset(input_buf, 0, 4096);
