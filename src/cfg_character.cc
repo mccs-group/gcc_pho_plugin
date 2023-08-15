@@ -2,6 +2,8 @@
 
 #include <numeric>
 #include <iostream>
+#include <queue>
+#include <unordered_map>
 
 
 void cfg_character::get_cfg_embed(function * fun)
@@ -56,11 +58,21 @@ void cfg_character::get_transition_matrix(function * fun)
 {
     Eigen::VectorXd mu_vec = Eigen::VectorXd::Zero(bb_amount);
     int i = 0;
-    for (auto&& row_it = adjacency.rowwise().begin(); row_it != adjacency.rowwise().end(); row_it++, i++)
+
+    auto&& set_one_if_transtion_row_empty = [](auto row_it)
     {
-        if (std::all_of(row_it->begin(), row_it->end(), [](double num){return num == 0;}))
-            mu_vec[i] = 1;
-    }
+        if (std::all_of(row_it.begin(), row_it.end(), [](double num){return num == 0;}))
+            return 1;
+        return 0;
+    };
+
+    std::transform(adjacency.rowwise().begin(), adjacency.rowwise().end(), mu_vec.begin(), set_one_if_transtion_row_empty);
+
+    // for (auto&& row_it = adjacency.rowwise().begin(); row_it != adjacency.rowwise().end(); row_it++, i++)
+    // {
+    //     if (std::all_of(row_it->begin(), row_it->end(), [](double num){return num == 0;}))
+    //         mu_vec[i] = 1;
+    // }
 
     // for (auto&& it : mu_vec)
     //     std::cout << it << ' ';
@@ -88,7 +100,8 @@ void cfg_character::get_eigen_vectors()
     //     << eigensolver.eigenvectors() << std::endl;
 
 
-    auto eigen_one_finder = [](std::complex<double> z){ return (std::abs(z.imag()) < 1e-6) && (std::abs(z.real() - 1.0) < 1e-6);};
+    auto eigen_one_finder = [](std::complex<double> z){ return (std::abs(z.imag()) < COMPARISON_PRECISION)
+                                                            && (std::abs(z.real() - 1.0) < COMPARISON_PRECISION);};
     auto it = std::find_if(eigensolver.eigenvalues().begin(), eigensolver.eigenvalues().end(), eigen_one_finder);
     int index = std::distance(eigensolver.eigenvalues().begin(), it);
 
@@ -104,11 +117,11 @@ void cfg_character::get_eigen_vectors()
     }
 
     Eigen::VectorXcd complex_eigen_vec = *(eigensolver.eigenvectors().colwise().begin() + index);
-    eigen_vec = Eigen::VectorXd::Zero(bb_amount);
-    std::transform(complex_eigen_vec.begin(), complex_eigen_vec.end(), eigen_vec.begin(), [](std::complex<double> z){return z.real();});
+    transition_m_eigen_vec = Eigen::VectorXd::Zero(bb_amount);
+    std::transform(complex_eigen_vec.begin(), complex_eigen_vec.end(), transition_m_eigen_vec.begin(), [](std::complex<double> z){return z.real();});
 
-    double coef_sum = std::reduce(eigen_vec.begin(), eigen_vec.end());
-    std::transform(eigen_vec.begin(), eigen_vec.end(), eigen_vec.begin(), [coef_sum](double x){return x / coef_sum;});
+    double coef_sum = std::reduce(transition_m_eigen_vec.begin(), transition_m_eigen_vec.end());
+    std::transform(transition_m_eigen_vec.begin(), transition_m_eigen_vec.end(), transition_m_eigen_vec.begin(), [coef_sum](double x){return x / coef_sum;});
 
     // std::cout << eigen_vec << std::endl;
     // for (int i = 0; i < )
@@ -119,8 +132,8 @@ void cfg_character::get_eigen_vectors()
 void cfg_character::get_embed_space()
 {
     Eigen::VectorXd Phi_inverse_diag = Eigen::VectorXd::Zero(bb_amount);
-    std::transform(eigen_vec.begin(), eigen_vec.end(), Phi_inverse_diag.begin(), [](double x){ if (x) return 1 / x; return 0.0;});
-    Eigen::MatrixXd Phi_matrix = eigen_vec.asDiagonal();
+    std::transform(transition_m_eigen_vec.begin(), transition_m_eigen_vec.end(), Phi_inverse_diag.begin(), [](double x){ if (x) return 1 / x; return 0.0;});
+    Eigen::MatrixXd Phi_matrix = transition_m_eigen_vec.asDiagonal();
     Eigen::MatrixXd Phi_inverse = Phi_inverse_diag.asDiagonal();
 
     // std::cout << Phi_matrix << std::endl;
@@ -133,8 +146,44 @@ void cfg_character::get_embed_space()
     if (eigensolver.info() != Eigen::Success)
         abort();
 
+    std::priority_queue<double, std::vector<double>, std::greater<double>> smallest_eigen;
+    std::unordered_map<double, std::vector<int>> eigen_to_indexes_map;
+
+    for (int i = 0; i < eigensolver.eigenvalues().size(); i++)
+    {
+        double val = eigensolver.eigenvalues()[i].real();
+        smallest_eigen.push(val);
+        eigen_to_indexes_map[val].push_back(i);
+    }
+
+    if (std::abs(smallest_eigen.top()) >= COMPARISON_PRECISION)
+        std::cerr << "smth went wrong: could not find zero among eigen values";
+    else
+        smallest_eigen.pop();
+
+    std::vector<Eigen::VectorXd> eigen_vec;
+    Eigen::VectorXd projection;
+
+    for (int i = 0; (i < one_bb_character_size) && !smallest_eigen.empty(); smallest_eigen.pop())
+    {
+        double small_eigen = smallest_eigen.top();
+        for (auto&& index : eigen_to_indexes_map[small_eigen])
+        {
+            Eigen::VectorXcd&& to_project = *(eigensolver.eigenvectors().colwise().begin() + index);
+            projection.resize(to_project.size());
+            std::transform(to_project.begin(), to_project.end(), projection.begin(), [](std::complex<double> z){return z.real();});
+            eigen_vec.push_back(projection);
+            i++;
+        }
+
+    }
+
     // std::cout << "The eigenvalues of Phi_inverse_Laplacian are:\n" << eigensolver.eigenvalues() << std::endl;
     // std::cout << "Here's a matrix whose columns are eigenvectors of A \n"
     //     << "corresponding to these eigenvalues:\n"
     //     << eigensolver.eigenvectors() << std::endl;
+
+    // std::cout << "Saved:" << std::endl;
+    // for (auto&& it : eigen_vec)
+    //     std::cout << it << ' ';
 }

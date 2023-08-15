@@ -14,7 +14,14 @@ INCLUDE_DIR = include
 
 CXX=g++
 
-PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) -Ithird_party/eigen-3.4.0 --std=c++17
+EXTERNAL_DIR = external
+
+EXTERNAL_INCLUDES = aarand annoy hnswlib kmeans kncolle powerit qdtnse
+EXTERNAL = -I$(EXTERNAL_DIR)/eigen-3.4.0 -I$(EXTERNAL_DIR)
+EXTERNAL += $(addprefix -I$(EXTERNAL_DIR)/, $(EXTERNAL_INCLUDES))
+
+PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17
+
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) -o $@
