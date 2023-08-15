@@ -23,6 +23,27 @@ static void delete_pass_tree(opt_pass *pass);
 unsigned int list_recv_pass::execute(function *fun)
 {
 
+    int size = recv(socket_fd, input_buf, 4096, 0);
+    if (size == -1) {
+        internal_error(
+            "dynamic replace plugin pass failed to receive data on socket\n");
+    }
+
+    char *func_name = input_buf;
+    char *pass_list = input_buf + 100;
+
+    if ((func_name[0] != 0) && (strcmp(func_name, function_name(fun)))) {
+        internal_error("dynamic replace plugin pass received pass list for "
+                       "wrong function. Expected [%s], got [%s]",
+                       function_name(fun), func_name);
+    }
+
+    // Do not clean pass tree if there is nothing to put
+    if (pass_list[0] == 0) {
+        memset(input_buf, 0, 4096);
+        return 0;
+    }
+
     opt_pass *pass = next;
     opt_pass *prev_pass = NULL;
     const char *dummy_name = "*plugin_dummy_pass_end_list";
@@ -38,21 +59,6 @@ unsigned int list_recv_pass::execute(function *fun)
         prev_pass->next = NULL;
         delete_pass_tree(next);
         next = pass;
-    }
-
-    int size = recv(socket_fd, input_buf, 4096, 0);
-    if (size == -1) {
-        internal_error(
-            "dynamic replace plugin pass failed to receive data on socket\n");
-    }
-
-    char *func_name = input_buf;
-    char *pass_list = input_buf + 100;
-
-    if ((func_name[0] != 0) && (strcmp(func_name, function_name(fun)))) {
-        internal_error("dynamic replace plugin pass received pass list for "
-                       "wrong function. Expected [%s], got [%s]",
-                       function_name(fun), func_name);
     }
 
     char *pass_name = strtok(pass_list, "\n");
