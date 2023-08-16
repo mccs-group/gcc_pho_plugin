@@ -371,10 +371,6 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
 int* gimple_character::parse_function(function * fun)
 {
-    #if DEBUG_PRINTS
-    std::cout << "====== " << get_name(fun->decl)<< " ======" << std::endl;
-    #endif
-
     basic_block bb;
 
     FOR_ALL_BB_FN(bb, fun)
@@ -508,10 +504,6 @@ int* gimple_character::parse_function(function * fun)
 
     // send_characterisation(fun);
     // reset();
-
-    #if DEBUG_PRINTS
-    std::cout << "============" << std::endl;
-    #endif
 
     return autophase_embeddings.data();
 }

@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 #include <array>
+#include <chrono>
 
 #include "cfg_character.hh"
 #include "gimple_character.hh"
@@ -42,6 +43,8 @@ class gimple_character_pass: public gimple_opt_pass
 {
     gimple_character characteriser;
     cfg_character cfg_char;
+    long int whole_time{0};
+    bool if_autop = false;
 
 public:
     gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
@@ -50,9 +53,25 @@ public:
 
     virtual unsigned int execute (function* fun) override
     {
-        // characteriser.parse_function(fun);
-        // characteriser.reset();
-        cfg_char.get_cfg_embed(fun);
+        // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
+        if (if_autop)
+        {
+            characteriser.parse_function(fun);
+            characteriser.reset();
+        }
+        else
+        {
+            // auto start = std::chrono::high_resolution_clock::now();
+
+            cfg_char.get_cfg_embed(fun);
+
+            // auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+            // whole_time += delta;
+            // std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
+            // std::cout << "whole time: " << whole_time << std::endl;
+        }
+
+        // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
         return 0;
     }
 };
