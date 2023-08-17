@@ -122,7 +122,7 @@ unsigned int embedding_send_pass::execute(function *fun)
 {
     autophase_generator.parse_function(fun);
     int *embedding = autophase_generator.data();
-    if (send(socket_fd, embedding, autophase_generator.CHARACTERISTICS_AMOUNT,
+    if (send(socket_fd, embedding, autophase_generator.CHARACTERISTICS_AMOUNT * 4,
              0) == -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
