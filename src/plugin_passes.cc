@@ -126,6 +126,7 @@ unsigned int embedding_send_pass::execute(function *fun)
              0) == -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
+    autophase_generator.reset();
     return 0;
 }
 
