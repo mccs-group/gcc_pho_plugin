@@ -54,7 +54,7 @@ class gimple_character_pass: public gimple_opt_pass
         VAL_FLOW,
     };
 
-    characterisations cur = VAL_FLOW;
+    characterisations cur = AUTOPHASE_LIKE;
 
 
 public:
@@ -69,10 +69,6 @@ public:
         {
             case AUTOPHASE_LIKE:
                 characteriser.parse_function(fun);
-                std::cout << std::endl;
-                for (int i = 0 ; i < characteriser.CHARACTERISTICS_AMOUNT; i++)
-                    std::cerr << *(characteriser.data() + i);
-                std::cout << std::endl;
                 characteriser.reset();
                 break;
             case CFG:

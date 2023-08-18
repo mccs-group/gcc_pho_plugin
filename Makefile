@@ -94,6 +94,9 @@ test_excep: autophase_plugin.so $(TEST_SRC_DIR)/except.cc
 test_bzip2: autophase_plugin.so
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS)  -c $(TEST_SRC_DIR)/bzip2d/bzlib.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
 
+test_ternar: autophase_plugin.so $(TEST_SRC_DIR)/ternar.c
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/ternar.c -o /dev/null
+
 clean_obj:
 	rm obj/*
 

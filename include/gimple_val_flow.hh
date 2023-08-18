@@ -33,8 +33,6 @@
 
 #include "ssa-iterators.h"
 
-#define DEBUG_PRINTS 1
-
 class val_flow_character
 {
     Eigen::MatrixXd def_use_matrix;

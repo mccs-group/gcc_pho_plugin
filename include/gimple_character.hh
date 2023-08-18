@@ -117,7 +117,6 @@ private:
 
     walk_stmt_info walk_info;
     bool in_binary = false;
-    bool in_rshisft = false;
 
 public:
     gimple_character();

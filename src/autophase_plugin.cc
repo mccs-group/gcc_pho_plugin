@@ -36,8 +36,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
             struct register_pass_info pass_info;
 
             pass_info.pass = new gimple_character_pass(g);
-            pass_info.reference_pass_name = "optimized";
-            pass_info.ref_pass_instance_number = 1;
+            pass_info.reference_pass_name = "local-pure-const";
+            pass_info.ref_pass_instance_number = 201;
             pass_info.pos_op = PASS_POS_INSERT_AFTER;
 
             register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP, NULL,
