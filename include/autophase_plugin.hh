@@ -12,6 +12,7 @@
 #include "cfg_character.hh"
 #include "gimple_character.hh"
 #include "rtl_character.hh"
+#include "gimple_val_flow.hh"
 
 const pass_data gimple_character_data =
 {
@@ -43,8 +44,18 @@ class gimple_character_pass: public gimple_opt_pass
 {
     gimple_character characteriser;
     cfg_character cfg_char;
+    val_flow_character val_char;
     long int whole_time{0};
-    bool if_autop = false;
+    enum characterisations
+    {
+        NONE,
+        AUTOPHASE_LIKE,
+        CFG,
+        VAL_FLOW,
+    };
+
+    characterisations cur = VAL_FLOW;
+
 
 public:
     gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
@@ -54,23 +65,34 @@ public:
     virtual unsigned int execute (function* fun) override
     {
         // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
-        if (if_autop)
+        switch(cur)
         {
-            characteriser.parse_function(fun);
-            characteriser.reset();
+            case AUTOPHASE_LIKE:
+                characteriser.parse_function(fun);
+                std::cout << std::endl;
+                for (int i = 0 ; i < characteriser.CHARACTERISTICS_AMOUNT; i++)
+                    std::cerr << *(characteriser.data() + i);
+                std::cout << std::endl;
+                characteriser.reset();
+                break;
+            case CFG:
+                // auto start = std::chrono::high_resolution_clock::now();
+
+                cfg_char.get_cfg_embed(fun);
+
+                // auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                // whole_time += delta;
+                // std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
+                // std::cout << "whole time: " << whole_time << std::endl;
+                break;
+            case VAL_FLOW:
+                val_char.parse_function(fun);
+                break;
+            case NONE:
+            default:
+                break;
+
         }
-        else
-        {
-            // auto start = std::chrono::high_resolution_clock::now();
-
-            cfg_char.get_cfg_embed(fun);
-
-            // auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-            // whole_time += delta;
-            // std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
-            // std::cout << "whole time: " << whole_time << std::endl;
-        }
-
         // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
         return 0;
     }

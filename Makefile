@@ -20,7 +20,7 @@ EXTERNAL_INCLUDES = aarand annoy hnswlib kmeans kncolle powerit qdtnse
 EXTERNAL = -I$(EXTERNAL_DIR)/eigen-3.4.0 -I$(EXTERNAL_DIR)
 EXTERNAL += $(addprefix -I$(EXTERNAL_DIR)/, $(EXTERNAL_INCLUDES))
 
-PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17
+PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O2 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17
 
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
@@ -41,7 +41,7 @@ $(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h exter
 
 TEST_SRC_DIR = autophase_tests
 
-AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.cc cfg_character.cc
+AUTOP_PLUGIN_SRC_FILES = autophase_plugin.cc gimple_character.cc rtl_character.cc cfg_character.cc gimple_val_flow.cc
 AUTOP_PLUGIN_SOURCES = $(addprefix $(SRC_DIR)/, $(AUTOP_PLUGIN_SRC_FILES))
 
 AUTOP_OBJECTS = $(AUTOP_PLUGIN_SRC_FILES:.cc=.o)
@@ -51,15 +51,18 @@ AUTOP_OBJ := $(addprefix $(OBJ_DIR)/, $(AUTOP_OBJECTS))
 CXXFLAGS = -O2 -I$(INCLUDE_DIR)
 PLUGINFLAGS = -fplugin=/home/lexotr/Opt_odg/gcc_dyn_list/autophase_plugin.so
 PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_optimized
-# PLUGINFLAGS += -fdump-tree-optimized
+PLUGINFLAGS += -fdump-tree-local-pure-const-vops
 
 # PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_dfinish
 # PLUGINFLAGS += -fdump-rtl-dfinish
 
 preproc_gimple: $(AUTOP_PLUGIN_SOURCES) $(INCLUDE_DIR)/autophase_plugin.hh
-	$(CXX) $(PLUGIN_COMPILE_FLAGS) -E $(SRC_DIR)/gimple_character.cc > plugin.preproc
+	$(CXX) $(PLUGIN_COMPILE_FLAGS) -E $(SRC_DIR)/gimple_val_flow.cc > plugin.preproc
 
 $(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc $(INCLUDE_DIR)/gimple_character.hh
+	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
+
+$(OBJ_DIR)/gimple_val_flow.o : $(SRC_DIR)/gimple_val_flow.cc $(INCLUDE_DIR)/gimple_val_flow.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 $(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc $(INCLUDE_DIR)/rtl_character.hh
@@ -70,7 +73,7 @@ $(OBJ_DIR)/cfg_character.o : $(SRC_DIR)/cfg_character.cc $(INCLUDE_DIR)/cfg_char
 
 $(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc $(INCLUDE_DIR)/autophase_plugin.hh\
 								$(INCLUDE_DIR)/gimple_character.hh $(INCLUDE_DIR)/rtl_character.hh\
-								$(INCLUDE_DIR)/cfg_character.hh
+								$(INCLUDE_DIR)/cfg_character.hh $(INCLUDE_DIR)/gimple_val_flow.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 autophase_plugin.so : $(AUTOP_OBJ)
@@ -82,11 +85,14 @@ test_bin: autophase_plugin.so $(TEST_SRC_DIR)/fizzbuzz.c
 test_phi: autophase_plugin.so $(TEST_SRC_DIR)/phi.c
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/phi.c -o /dev/null
 
+test_mem: autophase_plugin.so $(TEST_SRC_DIR)/mem.c
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/mem.c -o /dev/null
+
 test_excep: autophase_plugin.so $(TEST_SRC_DIR)/except.cc
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/except.cc -o /dev/null
 
 test_bzip2: autophase_plugin.so
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) $(TEST_SRC_DIR)/bzip2d/*.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS)  -c $(TEST_SRC_DIR)/bzip2d/bzlib.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
 
 clean_obj:
 	rm obj/*
