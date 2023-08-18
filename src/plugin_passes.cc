@@ -111,8 +111,19 @@ unsigned int list_recv_pass::execute(function *fun)
 unsigned int func_name_send_pass::execute(function *fun)
 {
     const char *func_name = function_name(fun);
-    if (send(socket_fd, func_name, strlen(func_name), 0) == -1) {
-        internal_error("dynamic replace plugin failed to send function name\n");
+    if (socket_fd == 0) {
+        const char* dot_index = strchr(func_name, '.');
+        if (dot_index != NULL) {
+            int len = dot_index - func_name;
+            fwrite(func_name, 1, len, stdout);
+            printf("\n");
+        } else {
+            printf("%s\n", func_name);
+        }
+    } else {
+        if (send(socket_fd, func_name, strlen(func_name), 0) == -1) {
+            internal_error("dynamic replace plugin failed to send function name\n");
+        }
     }
     return 0;
 }
