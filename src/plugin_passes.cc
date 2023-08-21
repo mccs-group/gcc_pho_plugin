@@ -32,10 +32,14 @@ unsigned int list_recv_pass::execute(function *fun)
     char *func_name = input_buf;
     char *pass_list = input_buf + 100;
 
-    if ((func_name[0] != 0) && (strcmp(func_name, function_name(fun)))) {
-        internal_error("dynamic replace plugin pass received pass list for "
-                       "wrong function. Expected [%s], got [%s]",
-                       function_name(fun), func_name);
+    if ((func_name[0] != 0) &&
+        (strcmp(func_name, IDENTIFIER_POINTER(
+                               decl_assembler_name(current_function_decl))))) {
+        internal_error(
+            "dynamic replace plugin pass received pass list for "
+            "wrong function. Expected [%s], got [%s]",
+            IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)),
+            func_name);
     }
 
     // Do not clean pass tree if there is nothing to put
@@ -110,9 +114,10 @@ unsigned int list_recv_pass::execute(function *fun)
 /// learning)
 unsigned int func_name_send_pass::execute(function *fun)
 {
-    const char *func_name = function_name(fun);
+    const char *func_name =
+        IDENTIFIER_POINTER(decl_assembler_name(current_function_decl));
     if (socket_fd == 0) {
-        const char* dot_index = strchr(func_name, '.');
+        const char *dot_index = strchr(func_name, '.');
         if (dot_index != NULL) {
             int len = dot_index - func_name;
             fwrite(func_name, 1, len, stdout);
@@ -122,7 +127,8 @@ unsigned int func_name_send_pass::execute(function *fun)
         }
     } else {
         if (send(socket_fd, func_name, strlen(func_name), 0) == -1) {
-            internal_error("dynamic replace plugin failed to send function name\n");
+            internal_error(
+                "dynamic replace plugin failed to send function name\n");
         }
     }
     return 0;
@@ -133,8 +139,8 @@ unsigned int embedding_send_pass::execute(function *fun)
 {
     autophase_generator.parse_function(fun);
     int *embedding = autophase_generator.data();
-    if (send(socket_fd, embedding, autophase_generator.CHARACTERISTICS_AMOUNT * 4,
-             0) == -1) {
+    if (send(socket_fd, embedding,
+             autophase_generator.CHARACTERISTICS_AMOUNT * 4, 0) == -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
     autophase_generator.reset();
