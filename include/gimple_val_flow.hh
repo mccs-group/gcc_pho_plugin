@@ -33,6 +33,8 @@
 
 #include "ssa-iterators.h"
 
+#define VAL_FLOW_DEBUG 0
+
 class val_flow_character
 {
     Eigen::MatrixXd def_use_matrix;
@@ -41,10 +43,24 @@ class val_flow_character
     std::vector<double> D_src_embed;
     std::vector<double> D_dst_embed;
 
+    std::vector<double> val_flow_embed;
+
     walk_stmt_info walk_info;
 
     std::vector<std::string> gimple_stmt_names;
     std::vector<std::string> tree_node_names;
+
+
+public:
+    double decay_param = 0.8;
+    int stmt_amount = 0;
+    int max_path_length = 3;
+    int D_matrix_characterisation_len = 7;
+
+    int embed_vec_len;
+
+    gimple* current_gs = nullptr;
+    tree current_load_node = nullptr;
 
 private:
 
@@ -54,17 +70,14 @@ private:
     void get_val_flow_matrix(function* fun);
     void get_proximity_matrix();
     void get_embed_matrices();
+    void compress(double* data);
 
     void reset_walk_info();
 
-public:
-    double decay_param = 0.8;
-    int stmt_amount = 0;
-    int max_path_length = 3;
-    int characterisation_len = 16;
+    void walk_aliased_vdefs(tree node);
 
 public:
-    val_flow_character()
+    val_flow_character() : val_flow_embed(2 * D_matrix_characterisation_len, 0)
     {
 
         #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
@@ -86,4 +99,12 @@ public:
     }
 
     void parse_function(function* fun);
+    void update_store_load_info(gimple* store_stmt, gimple* load_stmt);
+
+    double* data(){return val_flow_embed.data();};
+
+    tree handle_stmt(gimple* stmt,  bool* handled_op);
+    bool handle_aliased_vdef(ao_ref* ref , tree node);
+
+
 };

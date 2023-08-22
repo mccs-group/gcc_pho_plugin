@@ -14,6 +14,8 @@
 #include "rtl_character.hh"
 #include "gimple_val_flow.hh"
 
+#define IF_MEASURE_TIME 0
+
 const pass_data gimple_character_data =
 {
     GIMPLE_PASS,
@@ -65,32 +67,37 @@ public:
     virtual unsigned int execute (function* fun) override
     {
         // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
+        #if IF_MEASURE_TIME
+        auto start = std::chrono::high_resolution_clock::now();
+        #endif
         switch(cur)
         {
+            case NONE:
+                break;
             case AUTOPHASE_LIKE:
                 characteriser.parse_function(fun);
                 characteriser.reset();
                 break;
             case CFG:
-                // auto start = std::chrono::high_resolution_clock::now();
 
                 cfg_char.get_cfg_embed(fun);
-
-                // auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
-                // whole_time += delta;
-                // std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
-                // std::cout << "whole time: " << whole_time << std::endl;
                 break;
             case VAL_FLOW:
                 val_char.parse_function(fun);
                 break;
-            case NONE:
             default:
                 break;
 
         }
-        // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
+
+        #if IF_MEASURE_TIME
+        auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+        whole_time += delta;
+        std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
+        std::cout << "whole time: " << whole_time << std::endl;
+        #endif
         return 0;
+        // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
     }
 };
 

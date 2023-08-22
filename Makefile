@@ -20,8 +20,9 @@ EXTERNAL_INCLUDES = aarand annoy hnswlib kmeans kncolle powerit qdtnse
 EXTERNAL = -I$(EXTERNAL_DIR)/eigen-3.4.0 -I$(EXTERNAL_DIR)
 EXTERNAL += $(addprefix -I$(EXTERNAL_DIR)/, $(EXTERNAL_INCLUDES))
 
-PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O2 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17
+PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17 -DNDEBUG
 
+plugins: plugin.so autophase_plugin.so
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) -o $@
@@ -32,7 +33,7 @@ $(addprefix $(BUILD_DIR)/, $(OBJ_FILES)) : $(BUILD_DIR)/%.o : $(SRC_DIR)/%.cc  $
 makers_gen.elf: $(SRC_DIR)/makers_gen.cc 
 	$(CXX) $^ -o $@
   
-$(SRC_DIR)/pass_makers.cc: pass_makers.conf makers_gen.elf 
+$(SRC_DIR)/pass_makers.cc: pass_makers.conf makers_gen.elf
 	./makers_gen.elf pass_makers.conf > $(SRC_DIR)/pass_makers.cc
 
 $(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h extern_makers.cc
@@ -51,7 +52,7 @@ AUTOP_OBJ := $(addprefix $(OBJ_DIR)/, $(AUTOP_OBJECTS))
 CXXFLAGS = -O2 -I$(INCLUDE_DIR)
 PLUGINFLAGS = -fplugin=/home/lexotr/Opt_odg/gcc_dyn_list/autophase_plugin.so
 PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_optimized
-PLUGINFLAGS += -fdump-tree-local-pure-const-vops
+#PLUGINFLAGS += -fdump-tree-local-pure-const-vops
 
 # PLUGINFLAGS += -fplugin-arg-autophase_plugin-basic_blocks_dfinish
 # PLUGINFLAGS += -fdump-rtl-dfinish
@@ -79,23 +80,23 @@ $(OBJ_DIR)/autophase_plugin.o : $(SRC_DIR)/autophase_plugin.cc $(INCLUDE_DIR)/au
 autophase_plugin.so : $(AUTOP_OBJ)
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $^ -o $@
 
-test_bin: autophase_plugin.so $(TEST_SRC_DIR)/fizzbuzz.c
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/fizzbuzz.c -o /dev/null
+test_bin: $(TEST_SRC_DIR)/fizzbuzz.c autophase_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
-test_phi: autophase_plugin.so $(TEST_SRC_DIR)/phi.c
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/phi.c -o /dev/null
+test_phi: $(TEST_SRC_DIR)/phi.cc autophase_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o phi.o
 
-test_mem: autophase_plugin.so $(TEST_SRC_DIR)/mem.c
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/mem.c -o /dev/null
+test_mem: $(TEST_SRC_DIR)/mem.c autophase_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
-test_excep: autophase_plugin.so $(TEST_SRC_DIR)/except.cc
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/except.cc -o /dev/null
+test_excep: $(TEST_SRC_DIR)/except.cc autophase_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
 test_bzip2: autophase_plugin.so
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS)  -c $(TEST_SRC_DIR)/bzip2d/bzlib.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/bzip2d/bzlib.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
 
-test_ternar: autophase_plugin.so $(TEST_SRC_DIR)/ternar.c
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/ternar.c -o /dev/null
+test_ternar: $(TEST_SRC_DIR)/ternar.c autophase_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
 clean_obj:
 	rm obj/*
