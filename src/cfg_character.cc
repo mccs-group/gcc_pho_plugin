@@ -178,6 +178,8 @@ void cfg_character::get_embed_space()
             Eigen::VectorXcd&& to_project = *(eigensolver.eigenvectors().colwise().begin() + index);
             std::transform(to_project.begin(), to_project.end(), row_it->begin(), [](std::complex<double> z){return z.real();});
             ++row_it;
+            if (row_it == smallest_eigen_vec.colwise().end())
+                break;
         }
         smallest_eigen.pop();
     }
