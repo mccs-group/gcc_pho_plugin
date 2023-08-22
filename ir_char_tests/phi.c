@@ -1,11 +1,22 @@
 extern int rand();
 extern int print(int a, int b, int c);
 extern int calc(int a);
-extern int wow(int* ptr);
+extern int wow(int* ptr) __attribute__ ((pure));
 
-void check_stmt(int a)
+
+int const_ptr(const int* a, float b)
 {
-    return;
+    return 0;
+}
+
+int non_const_ptr(int * a, const float b)
+{
+    return 0;
+}
+
+int super_const_ptr(int * const a, const float b)
+{
+    return 0;
 }
 
 int main()

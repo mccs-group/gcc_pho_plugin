@@ -3,7 +3,7 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
-#include "autophase_plugin.hh"
+#include "test_plugin.hh"
 
 /// Symbol required by GCC
 int plugin_is_GPL_compatible;

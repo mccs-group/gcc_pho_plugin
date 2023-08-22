@@ -4,13 +4,13 @@ extern int calc(int a);
 extern int wow(int* ptr);
 
 int b;
-
 int glob;
 
 int main()
 {
     b = rand();
-    // // int* ptr = &glob;
+    int a = rand();
+    int* ptr = &glob;
 
     if (b > 20)
     {
@@ -20,7 +20,7 @@ int main()
     else
     {
         b = 15;
-        glob = calc(13);
+        wow(ptr);
     }
 
     print(glob, b);
