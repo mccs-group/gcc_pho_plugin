@@ -183,7 +183,8 @@ void gimple_character::parse_tree_code(tree_code code)
         case tree_code::TARGET_MEM_REF:
             autophase_embeddings[gimple_autophase_embed::MEMORY_INSTR]++;
             break;
-
+        default:
+            break;
     }
 }
 
@@ -294,6 +295,9 @@ void gimple_character::parse_stmt(gimple *gs)
         case GIMPLE_RETURN:
             parse_return(gs);
             break;
+
+        default:
+            break;
     }
 
     return;
@@ -305,7 +309,6 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
     for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     {
-        gimple *gs = gsi_stmt (i);
         autophase_embeddings[gimple_autophase_embed::INSTRUCTIONS]++;
 
         #if DEBUG_PRINTS
@@ -492,6 +495,6 @@ void gimple_character::send_characterisation(function* fun)
     name << "fun_" << get_name(fun->decl);
 
     std::ofstream dump_stream(name.str(), std::ios_base::out);
-    for (int i = 0; i < autophase_embeddings.size(); i++)
+    for (int i = 0; i < CHARACTERISTICS_AMOUNT; i++)
         dump_stream << autophase_embeddings[i] << std::endl;
 }

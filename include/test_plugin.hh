@@ -56,7 +56,7 @@ class gimple_character_pass: public gimple_opt_pass
         VAL_FLOW,
     };
 
-    characterisations cur = AUTOPHASE_LIKE;
+    characterisations cur = VAL_FLOW;
 
 
 public:
@@ -67,6 +67,7 @@ public:
     virtual unsigned int execute (function* fun) override
     {
         // std::cout << "=========" << function_name(fun) << "========="  << std::endl;
+        // std::cout << "=========" << IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)) << "=========" << std::endl;
         #if IF_MEASURE_TIME
         auto start = std::chrono::high_resolution_clock::now();
         #endif
@@ -79,10 +80,15 @@ public:
                 characteriser.reset();
                 break;
             case CFG:
-
+                #if IF_MEASURE_TIME
+                std::cout << fun->cfg->x_n_basic_blocks << std::endl;
+                #endif
                 cfg_char.get_cfg_embed(fun);
                 break;
             case VAL_FLOW:
+                #if IF_MEASURE_TIME
+                std::cout << fun->last_stmt_uid << std::endl;
+                #endif
                 val_char.parse_function(fun);
                 break;
             default:
@@ -93,7 +99,7 @@ public:
         #if IF_MEASURE_TIME
         auto delta = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
         whole_time += delta;
-        std::cout << "on " << get_name(fun->decl) << " took " << delta << std::endl;
+        std::cout << "on " << function_name(fun) << " took " << delta << std::endl;
         std::cout << "whole time: " << whole_time << std::endl;
         #endif
         return 0;

@@ -5,7 +5,6 @@
 #include <queue>
 #include <unordered_map>
 
-
 int cfg_character::get_cfg_embed(function * fun)
 {
     if ((fun->cfg->x_n_basic_blocks - service_bb_amount) <= 3)
@@ -67,7 +66,6 @@ void cfg_character::get_adjacency_matrix(function * fun)
 void cfg_character::get_transition_matrix(function * fun)
 {
     Eigen::VectorXd mu_vec = Eigen::VectorXd::Zero(bb_amount);
-    int i = 0;
 
     auto&& set_one_if_transtion_row_empty = [](auto row_it)
     {

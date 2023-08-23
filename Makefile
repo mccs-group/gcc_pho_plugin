@@ -20,7 +20,7 @@ EXTERNAL_INCLUDES = aarand annoy hnswlib kmeans kncolle powerit qdtnse
 EXTERNAL = -I$(EXTERNAL_DIR)/eigen-3.4.0 -I$(EXTERNAL_DIR)
 EXTERNAL += $(addprefix -I$(EXTERNAL_DIR)/, $(EXTERNAL_INCLUDES))
 
-PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17 -DNDEBUG
+PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -I$(INCLUDE_DIR) $(EXTERNAL) --std=c++17
 
 .PHONY: clean clean_obj build_plugins
 
@@ -83,8 +83,8 @@ test_plugin.so : $(AUTOP_OBJ)
 test_bin: $(TEST_SRC_DIR)/fizzbuzz.c test_plugin.so
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
-test_phi: $(TEST_SRC_DIR)/phi.cc test_plugin.so
-	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o phi.o
+test_phi: $(TEST_SRC_DIR)/phi.c test_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
 test_mem: $(TEST_SRC_DIR)/mem.c test_plugin.so
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
@@ -94,6 +94,12 @@ test_excep: $(TEST_SRC_DIR)/except.cc test_plugin.so
 
 test_bzip2: test_plugin.so
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $(TEST_SRC_DIR)/bzip2d/bzlib.c -I$(TEST_SRC_DIR)/bzip2d -o /dev/null
+
+test_gsm: test_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) $(TEST_SRC_DIR)/gsm/*.c -I$(TEST_SRC_DIR)/gsm -o /dev/null
+
+test_huge: $(TEST_SRC_DIR)/spirit.cc test_plugin.so
+	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
 
 test_ternar: $(TEST_SRC_DIR)/ternar.c test_plugin.so
 	$(TARGET_GCC) $(CXXFLAGS) $(PLUGINFLAGS) -c $< -o /dev/null
