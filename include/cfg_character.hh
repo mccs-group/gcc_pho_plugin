@@ -29,7 +29,11 @@ private:
 
     std::vector<double> cfg_embedding;
 
+    std::vector<int> adjacency_array;
+
     int bb_amount = 0;
+
+    bool get_full_embed = true;
 
     const static int service_bb_amount = 2;
 
@@ -37,7 +41,13 @@ public:
     cfg_character() : perturbation_factor(standart_perturbation_factor), one_bb_character_size(standart_on_bb_char_size),
                       cfg_embedding(one_bb_character_size, 0)
     {}
-    int get_cfg_embed(function * fun);
+    int parse_function(function * fun);
+
+    void get_adjacency_array(function * fun);
+    int* adjacency_array_data() { return adjacency_array.data(); }
+    int adjacency_array_size() { return adjacency_array.size(); }
+
+    void reset();
 
 private:
     void get_adjacency_matrix(function * fun);

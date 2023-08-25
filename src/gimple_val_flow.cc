@@ -4,7 +4,7 @@
 #include <string_view>
 
 static
-bool check_collision(ao_ref * ref , tree node, void * val_flow_char)
+bool aliased_vdef_callback(ao_ref * ref , tree node, void * val_flow_char)
 {
     val_flow_character* characteriser = reinterpret_cast<val_flow_character*>(val_flow_char);
     return characteriser->handle_aliased_vdef(ref, node);
@@ -12,8 +12,9 @@ bool check_collision(ao_ref * ref , tree node, void * val_flow_char)
 
 static tree val_flow_stmt_callback(gimple_stmt_iterator* i, bool* handled_op, struct walk_stmt_info* wi)
 {
+    *handled_op = true;
     val_flow_character* characteriser = reinterpret_cast<val_flow_character*>(wi->info);
-    return characteriser->handle_stmt(gsi_stmt (*i), handled_op);
+    return characteriser->handle_stmt(gsi_stmt (*i));
 }
 
 bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
@@ -27,11 +28,7 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
 
     gimple *def_stmt = SSA_NAME_DEF_STMT (node);
     if (!gimple_store_p(def_stmt))
-    {
         return false;
-    }
-
-    // std::cout << "stmt with id " << def_stmt->uid << " is a store" << std::endl;
 
     tree def_stmt_lhs = gimple_get_lhs(def_stmt);
     if (!def_stmt_lhs)
@@ -55,8 +52,8 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
             def_use_matrix(def_stmt->uid, current_gs->uid) += 1;
         else
         {
-            adjacency_arr.push_back(def_stmt->uid);
-            adjacency_arr.push_back(current_gs->uid);
+            adjacency_array.push_back(def_stmt->uid);
+            adjacency_array.push_back(current_gs->uid);
         }
         return true;
     }
@@ -78,38 +75,37 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
     return false;
 }
 
-tree val_flow_character::handle_stmt(gimple* gs,  bool* handled_op)
+
+
+void val_flow_character::handle_assign(gimple* gs)
 {
-    *handled_op = true;
-
-    current_gs = gs;
-
-    if (gs->code != GIMPLE_ASSIGN)
-    {
-        return NULL;
-    }
     #if VAL_FLOW_DEBUG
-    else
-    {
-        if (const char* assign_rhs_name = get_name(gimple_assign_rhs1(gs)))
-            std::cout << "assign from " << assign_rhs_name;
-        std::cout << SSA_NAME_VERSION(gimple_assign_rhs1(gs)) << std::endl;
-    }
+    if (const char* assign_rhs_name = get_name(gimple_assign_rhs1(gs)))
+        std::cout << "assign from " << assign_rhs_name;
+    std::cout << SSA_NAME_VERSION(gimple_assign_rhs1(gs)) << std::endl;
     #endif
+
+    if (!gimple_assign_load_p(gs))
+        return;
 
     current_load_node = gimple_assign_rhs1(gs);
 
-    if (!gimple_assign_load_p(gs))
-    {
-        return NULL;
-    }
+    init_walk_aliased_vdefs();
+}
 
-    walk_aliased_vdefs(current_load_node);
+tree val_flow_character::handle_stmt(gimple* gs)
+{
+    current_gs = gs;
+
+    if (gs->code == GIMPLE_ASSIGN)
+    {
+        handle_assign(gs);
+    }
 
     return NULL;
 }
 
-void val_flow_character::walk_aliased_vdefs(tree node)
+void val_flow_character::init_walk_aliased_vdefs()
 {
     ao_ref refd;
 
@@ -124,18 +120,19 @@ void val_flow_character::walk_aliased_vdefs(tree node)
         std::cout << "STMT VUSE addr " << vuse_node << std::endl;
         #endif
 
-        ::walk_aliased_vdefs (&refd, vuse_node, check_collision, this, NULL);
+        ::walk_aliased_vdefs (&refd, vuse_node, aliased_vdef_callback, this, NULL);
     }
 }
 
-int* val_flow_character::get_adjacency_array(function* fun)
+void val_flow_character::get_adjacency_array(function* fun)
 {
     reset();
     get_full_embed = false;
-    adjacency_arr.reserve(stmt_amount * 2);
-    get_val_flow_matrix(fun);
+    stmt_amount = fun->last_stmt_uid;
+    adjacency_array.reserve(stmt_amount * 2);
+    adjacency_array.push_back(stmt_amount);
 
-    return adjacency_arr.data();
+    get_val_flow_matrix(fun);
 }
 
 void val_flow_character::parse_function(function * fun)
@@ -143,8 +140,10 @@ void val_flow_character::parse_function(function * fun)
     reset();
     // if (fun->last_stmt_uid <= 3)
     //     return;
+    get_full_embed = true;
     stmt_amount = fun->last_stmt_uid;
     def_use_matrix = Eigen::MatrixXd::Zero(stmt_amount, stmt_amount);
+
     get_val_flow_matrix(fun);
     get_proximity_matrix();
     get_embed_matrices();
@@ -180,8 +179,8 @@ void val_flow_character::get_val_flow_matrix(function* fun)
             std::cout << "in " << gimple_stmt_names[gimple_code ((gsi_stmt(i)))] << " id : " << gsi_stmt(i)->uid << std::endl;
             print_gimple_stmt(stdout, gsi_stmt(i), 0, TDF_SLIM);
             #endif
-
-            walk_gimple_stmt(&i, val_flow_stmt_callback, nullptr, &walk_info);
+            ::walk_gimple_stmt(&i, val_flow_stmt_callback, nullptr, &walk_info);
+            reset_walk_info();
         }
 
         gphi_iterator pi;
@@ -210,8 +209,19 @@ void val_flow_character::get_proximity_matrix()
 
 void val_flow_character::get_embed_matrices()
 {
-    // std::cout << def_use_matrix << std::endl;
     Eigen::BDCSVD<Eigen::MatrixXd> svd(proximity_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+    Eigen::MatrixXd U_mat = svd.matrixU();
+    Eigen::MatrixXd V_mat = svd.matrixV();
+
+    if (!no_nan_matrix(U_mat.colwise().begin(), U_mat.colwise().end()) || !no_nan_matrix(V_mat.colwise().begin(), V_mat.colwise().end()))
+    {
+        // std::cout << "had to apply jac svd" << std::endl;
+        Eigen::JacobiSVD<Eigen::MatrixXd> jac_svd(proximity_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+        U_mat = jac_svd.matrixU();
+        V_mat = jac_svd.matrixV();
+
+    }
 
     embed_vec_len = std::min<long int>(stmt_amount, D_matrix_characterisation_len);
     D_mat_rows = std::max<long int>(stmt_amount, D_matrix_characterisation_len);
@@ -219,8 +229,8 @@ void val_flow_character::get_embed_matrices()
     Eigen::MatrixXd D_src = Eigen::MatrixXd::Zero(D_mat_rows, D_matrix_characterisation_len);
     Eigen::MatrixXd D_dst = Eigen::MatrixXd::Zero(D_mat_rows, D_matrix_characterisation_len);
 
-    D_src(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = svd.matrixU()(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
-    D_dst(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = svd.matrixV()(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
+    D_src(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = U_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
+    D_dst(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = V_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
 
     // if (stmt_amount < 20)
     // {
@@ -301,11 +311,13 @@ void val_flow_character::get_all_ssa_uses(tree ssa_name, gimple* gs)
     FOR_EACH_IMM_USE_STMT (stmt, use_it, ssa_name)
     {
         if(get_full_embed)
+        {
             def_use_matrix(stmt_id, stmt->uid) += 1;
+        }
         else
         {
-            adjacency_arr.push_back(stmt_id);
-            adjacency_arr.push_back(stmt->uid);
+            adjacency_array.push_back(stmt_id);
+            adjacency_array.push_back(stmt->uid);
         }
     }
 }
@@ -315,7 +327,7 @@ void val_flow_character::reset()
     D_src_embed.clear();
     D_dst_embed.clear();
     val_flow_embed.clear();
-    adjacency_arr.clear();
+    adjacency_array.clear();
 }
 
 static bool clear_hash_set(const hash_set<tree>::Key& key, hash_set<tree>* set)

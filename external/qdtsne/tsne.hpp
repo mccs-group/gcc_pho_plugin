@@ -387,9 +387,9 @@ public:
         std::vector<Float> dY, uY, gains, pos_f, neg_f;
 
         // Buffer to hold parallel-computed results prior to reduction.
-        std::vector<Float> parallel_buffer;
-
         SPTree<ndim, Float> tree;
+
+        std::vector<Float> parallel_buffer;
 
         IterationParameters iparams;
         int iter = 0;

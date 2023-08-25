@@ -5,10 +5,22 @@
 #include <queue>
 #include <unordered_map>
 
-int cfg_character::get_cfg_embed(function * fun)
+void cfg_character::get_adjacency_array(function * fun)
 {
+    reset();
+    get_full_embed = false;
+    adjacency_array.reserve(fun->cfg->x_n_basic_blocks);
+    adjacency_array.push_back(fun->cfg->x_n_basic_blocks - 2);
+    get_adjacency_matrix(fun);
+}
+
+int cfg_character::parse_function(function * fun)
+{
+    reset();
     if ((fun->cfg->x_n_basic_blocks - service_bb_amount) <= 3)
         return 0;
+
+    get_full_embed = true;
 
     get_adjacency_matrix(fun);
     get_transition_matrix(fun);
@@ -27,8 +39,11 @@ void cfg_character::get_adjacency_matrix(function * fun)
 {
     bb_amount = fun->cfg->x_n_basic_blocks - service_bb_amount; // special empty basic blocks with id 0 and 1 which are entry/exit are not interesting
 
-    adjacency = Eigen::MatrixXd::Zero(bb_amount, bb_amount);
-    invert_out_degrees = Eigen::MatrixXd::Zero(bb_amount, bb_amount);
+    if (get_full_embed)
+    {
+        adjacency = Eigen::MatrixXd::Zero(bb_amount, bb_amount);
+        invert_out_degrees = Eigen::MatrixXd::Zero(bb_amount, bb_amount);
+    }
 
     basic_block bb_for_matrix;
     FOR_ALL_BB_FN(bb_for_matrix, fun)
@@ -52,9 +67,15 @@ void cfg_character::get_adjacency_matrix(function * fun)
             
             suc_amount += 1;
             int suc_index = suc_e->dest->index - service_bb_amount;
-            adjacency(current_id, suc_index) = 1;
+            if (get_full_embed)
+                adjacency(current_id, suc_index) = 1;
+            else
+            {
+                adjacency_array.push_back(current_id);
+                adjacency_array.push_back(suc_index);
+            }
         }
-        if (suc_amount)
+        if (suc_amount && get_full_embed)
             invert_out_degrees(current_id, current_id) = 1.0 / suc_amount;
     }
 
@@ -182,6 +203,8 @@ void cfg_character::get_embed_space()
         smallest_eigen.pop();
     }
 
+    // smallest_eigen_vec.transposeInPlace();
+
     // std::cout << smallest_eigen_vec << std::endl;
     // std::cout << bb_amount << std::endl;
     // std::cout << smallest_eigen_vec.rows() << ' ' << smallest_eigen_vec.cols() << std::endl;
@@ -202,7 +225,7 @@ void cfg_character::get_embed_space()
 void cfg_character::compress_with_tSNE()
 {
     static constexpr int ndim = 1;
-    auto Y = qdtsne::initialize_random<ndim>(bb_amount); // initial coordinates
+    auto Y = qdtsne::initialize_random<ndim>(smallest_eigen_vec.cols()); // initial coordinates
 
     qdtsne::Tsne<ndim> tSNEcompressor;
     if (smallest_eigen_vec.cols() <= 3)
@@ -218,4 +241,10 @@ void cfg_character::compress_with_tSNE()
     }
     auto ref = tSNEcompressor.run(smallest_eigen_vec.data(), smallest_eigen_vec.rows(), smallest_eigen_vec.cols(), Y.data());
     std::copy(Y.data(), Y.data() + one_bb_character_size, cfg_embedding.begin());
+}
+
+void cfg_character::reset()
+{
+    cfg_embedding.clear();
+    adjacency_array.clear();
 }

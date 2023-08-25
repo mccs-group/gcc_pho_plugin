@@ -64,7 +64,7 @@ $(OBJ_DIR)/gimple_character.o : $(SRC_DIR)/gimple_character.cc $(INCLUDE_DIR)/gi
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
 
 $(OBJ_DIR)/gimple_val_flow.o : $(SRC_DIR)/gimple_val_flow.cc $(INCLUDE_DIR)/gimple_val_flow.hh
-	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@
+	$(CXX) $(PLUGIN_COMPILE_FLAGS) -DNDEBUG $< -c -o $@
 
 $(OBJ_DIR)/rtl_character.o : $(SRC_DIR)/rtl_character.cc $(INCLUDE_DIR)/rtl_character.hh
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) $< -c -o $@

@@ -83,13 +83,24 @@ public:
                 #if IF_MEASURE_TIME
                 std::cout << fun->cfg->x_n_basic_blocks << std::endl;
                 #endif
-                cfg_char.get_cfg_embed(fun);
+                cfg_char.get_adjacency_array(fun);
+                // for (int i = 0; i < cfg_char.adjacency_array_size(); i++)
+                // {
+                //     std::cout << *(cfg_char.adjacency_array_data() + i) << ", ";
+                // }
+                // std::cout << std::endl;
+
                 break;
             case VAL_FLOW:
                 #if IF_MEASURE_TIME
                 std::cout << fun->last_stmt_uid << std::endl;
                 #endif
-                val_char.parse_function(fun);
+                val_char.get_adjacency_array(fun);
+                // for (int i = 0; i < val_char.adjacency_array_size(); i++)
+                // {
+                //     std::cout << *(val_char.adjacency_array_data() + i) << ", ";
+                // }
+                // std::cout << std::endl;
                 break;
             default:
                 break;

@@ -47,14 +47,14 @@ class val_flow_character
     std::vector<double> D_dst_embed;
 
     std::vector<double> val_flow_embed;
-    std::vector<int> adjacency_arr;
+    std::vector<int> adjacency_array;
 
     walk_stmt_info walk_info;
 
     #if VAL_FLOW_DEBUG
     std::vector<std::string> gimple_stmt_names;
-    std::vector<std::string> tree_node_names;
     #endif
+    std::vector<std::string> tree_node_names;
 
 public:
     static constexpr double COMPARISON_PRECISION = 1e-6;
@@ -85,7 +85,7 @@ private:
 
     void reset_walk_info();
 
-    void walk_aliased_vdefs(tree node);
+    void init_walk_aliased_vdefs();
 
 public:
     val_flow_character()
@@ -95,12 +95,12 @@ public:
         #include "gimple.def"
         #undef DEFGSCODE
 
+        #endif
         #define DEFTREECODE(SYM, STRING, TYPE, NARGS) tree_node_names.push_back(STRING);
         #define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
         #include "all-tree.def"
         #undef DEFTREECODE
         #undef END_OF_BASE_TREE_CODES
-        #endif
 
         walk_info.pset = new hash_set<tree>;
         walk_info.info = this;
@@ -110,19 +110,32 @@ public:
         delete walk_info.pset;
     }
 
-    // returns a pointer to array, where each odd element is def stmt, and folowing it - use stmt
-    int* get_adjacency_array(function* fun);
+    // get from function an array, where each odd element is def stmt, and folowing it - use stmt
+    void get_adjacency_array(function* fun);
+    int* adjacency_array_data() { return adjacency_array.data(); }
+    int adjacency_array_size() { return adjacency_array.size(); }
 
     void parse_function(function* fun);
 
     double* data(){return val_flow_embed.data();};
 
-    tree handle_stmt(gimple* stmt,  bool* handled_op);
+    tree handle_stmt(gimple* stmt);
+    void handle_assign(gimple* stmt);
+    void handle_call(gimple* stmt);
+    bool function_ith_arg_const(tree fun_decl, int index);
     bool handle_aliased_vdef(ao_ref* ref , tree node);
 
     void reset();
 
 
+    template <typename it>
+    bool no_nan_matrix(it col_begin, it col_end)
+    {
+        auto&& bad_col = [](typename std::iterator_traits<it>::value_type col){return std::any_of(col.begin(), col.end(), [](double num){return isnan(num);});};
+        if (std::find_if(col_begin, col_end, bad_col) == col_end)
+            return true;
+        return false;
+    }
 };
 
 #endif

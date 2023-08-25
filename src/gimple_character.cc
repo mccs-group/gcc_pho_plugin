@@ -333,6 +333,7 @@ void gimple_character::parse_gimple_seq(gimple_seq seq)
 
 int* gimple_character::parse_function(function * fun)
 {
+    reset();
     basic_block bb;
     // std::cerr << function_name(fun) << std::endl;
     // FILE* fun_file = fopen(function_name(fun), "w");
