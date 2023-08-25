@@ -314,6 +314,20 @@ int plugin_init(struct plugin_name_args *plugin_info,
             register_callback(plugin_info->base_name, PLUGIN_FINISH,
                               callbacks::compilation_end, NULL);
 
+            struct pass_data embed_send_pass_data = {
+                opt_pass_type::GIMPLE_PASS,
+                "embed_send",
+                OPTGROUP_NONE,
+                TV_NONE,
+                0,
+                0,
+                0,
+                0,
+                0,
+            };
+            opt_pass *embed_send_pass =
+                new embedding_send_pass(embed_send_pass_data, g, gcc_socket);
+
             if ((plugin_info->argv[i].value != NULL) &&
                 (!strcmp(plugin_info->argv[i].value, "learning"))) {
                 // initialize passes for learning
@@ -328,8 +342,8 @@ int plugin_init(struct plugin_name_args *plugin_info,
                     0,
                     0,
                 };
-                opt_pass *name_send_pass = new func_name_send_pass(
-                    list_insert_pass_data, g, gcc_socket);
+                opt_pass *name_send_pass =
+                    new func_name_send_pass(name_send_pass_data, g, gcc_socket);
                 struct register_pass_info name_send_info = {
                     name_send_pass,
                     "dynamic_list_insert",
@@ -340,8 +354,29 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 register_callback(plugin_info->base_name,
                                   PLUGIN_PASS_MANAGER_SETUP, NULL,
                                   &name_send_info);
+
+                struct register_pass_info embed_send_info = {
+                    embed_send_pass,
+                    "*plugin_dummy_pass_end_list2",
+                    1,
+                    PASS_POS_INSERT_AFTER,
+                };
+
+                register_callback(plugin_info->base_name,
+                                  PLUGIN_PASS_MANAGER_SETUP, NULL,
+                                  &embed_send_info);
             } else {
                 // initialize passes for inference
+                struct register_pass_info embed_send_info = {
+                    embed_send_pass,
+                    "dynamic_list_insert",
+                    1,
+                    PASS_POS_INSERT_BEFORE,
+                };
+
+                register_callback(plugin_info->base_name,
+                                  PLUGIN_PASS_MANAGER_SETUP, NULL,
+                                  &embed_send_info);
             }
         }
 
