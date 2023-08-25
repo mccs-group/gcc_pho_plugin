@@ -29,18 +29,7 @@ unsigned int list_recv_pass::execute(function *fun)
             "dynamic replace plugin pass failed to receive data on socket\n");
     }
 
-    char *func_name = input_buf;
-    char *pass_list = input_buf + 100;
-
-    if ((func_name[0] != 0) &&
-        (strcmp(func_name, IDENTIFIER_POINTER(
-                               decl_assembler_name(current_function_decl))))) {
-        internal_error(
-            "dynamic replace plugin pass received pass list for "
-            "wrong function. Expected [%s], got [%s]",
-            IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)),
-            func_name);
-    }
+    char *pass_list = input_buf;
 
     // Do not clean pass tree if there is nothing to put
     if (pass_list[0] == 0) {
@@ -74,7 +63,9 @@ unsigned int list_recv_pass::execute(function *fun)
                 internal_error(
                     "dynamic replace plugin pass received an unknown "
                     "pass name [%s] in function [%s]\n",
-                    pass_name, func_name);
+                    pass_name,
+                    IDENTIFIER_POINTER(
+                        decl_assembler_name(current_function_decl)));
             }
             struct register_pass_info pass_data = {pass_to_insert, next->name,
                                                    1, PASS_POS_INSERT_BEFORE};
@@ -87,7 +78,9 @@ unsigned int list_recv_pass::execute(function *fun)
                     internal_error(
                         "dynamic replace plugin pass received an unknown "
                         "pass name [%s] in function [%s]\n",
-                        pass_name, func_name);
+                        pass_name,
+                        IDENTIFIER_POINTER(
+                            decl_assembler_name(current_function_decl)));
                 }
                 if (pass_to_insert->sub == NULL) {
                     pass_to_insert->sub = subpass;
