@@ -195,6 +195,30 @@ int plugin_init(struct plugin_name_args *plugin_info,
             } else if (!strcmp(plugin_info->argv[i].value, "executed")) {
                 register_callback(plugin_info->base_name, PLUGIN_PASS_EXECUTION,
                                   callbacks::pass_exec, NULL);
+            } else if (!strcmp(plugin_info->argv[i].value, "symbols")) {
+                struct pass_data name_send_pass_data = {
+                    opt_pass_type::GIMPLE_PASS,
+                    "func_name_send",
+                    OPTGROUP_NONE,
+                    TV_NONE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                };
+                opt_pass *name_send_pass =
+                    new func_name_send_pass(name_send_pass_data, g, 0);
+                struct register_pass_info name_send_info = {
+                    name_send_pass,
+                    "*strip_predict_hints",
+                    1,
+                    PASS_POS_INSERT_BEFORE,
+                };
+
+                register_callback(plugin_info->base_name,
+                                  PLUGIN_PASS_MANAGER_SETUP, NULL,
+                                  &name_send_info);
             } else {
                 fprintf(stderr, "Incorrect plugin dump_format value\n");
                 return -1;
