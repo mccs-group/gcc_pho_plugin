@@ -6,6 +6,11 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "plugin_passes.h"
+
+#include "callbacks.h"
+#include "pass_makers.h"
+
 #include "gcc-plugin.h"
 
 #include "context.h"
@@ -14,9 +19,6 @@
 #include "plugin-version.h"
 #include "tree-pass.h"
 
-#include "callbacks.h"
-#include "pass_makers.h"
-#include "plugin_passes.h"
 
 /// Symbol required by GCC
 int plugin_is_GPL_compatible;

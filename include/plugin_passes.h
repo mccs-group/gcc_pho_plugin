@@ -2,12 +2,15 @@
 
 #include <sys/socket.h>
 
+#include "cfg_character.hh"
+#include "gimple_character.hh"
+#include "gimple_val_flow.hh"
+
 #include "context.h"
 #include "error.h"
 #include "gcc-plugin.h"
 #include "tree-pass.h"
 #include "tree.h"
-#include "gimple_character.hh"
 
 /// Dummy marker pass, does nothing
 class dummy_pass : public opt_pass {
@@ -61,6 +64,8 @@ class embedding_send_pass : public opt_pass {
 
     int socket_fd;
     gimple_character autophase_generator;
+    cfg_character cfg_embedding;
+    val_flow_character val_flow_embedding;
 
     opt_pass *clone() override { return new embedding_send_pass(*this); }
 

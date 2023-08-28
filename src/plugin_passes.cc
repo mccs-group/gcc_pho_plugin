@@ -2,6 +2,12 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "cfg_character.hh"
+#include "gimple_character.hh"
+#include "gimple_val_flow.hh"
+#include "pass_makers.h"
+#include "plugin_passes.h"
+
 #include "gcc-plugin.h"
 
 #include "context.h"
@@ -10,10 +16,6 @@
 #include "function.h"
 #include "plugin-version.h"
 #include "tree-pass.h"
-
-#include "gimple_character.hh"
-#include "pass_makers.h"
-#include "plugin_passes.h"
 
 static void delete_pass_tree(opt_pass *pass);
 
@@ -130,13 +132,30 @@ unsigned int func_name_send_pass::execute(function *fun)
 /// This pass send current function embedding
 unsigned int embedding_send_pass::execute(function *fun)
 {
+
     autophase_generator.parse_function(fun);
-    int *embedding = autophase_generator.data();
-    if (send(socket_fd, embedding,
-             autophase_generator.CHARACTERISTICS_AMOUNT * 4, 0) == -1) {
+    int *autophase_array = autophase_generator.data();
+    int autophase_len =
+        autophase_generator.CHARACTERISTICS_AMOUNT * sizeof(int);
+
+    cfg_embedding.get_adjacency_array(fun);
+    int *cfg_array = cfg_embedding.adjacency_array_data();
+    int cfg_len = cfg_embedding.adjacency_array_size() * sizeof(int);
+
+    val_flow_embedding.get_adjacency_array(fun);
+    int *val_flow_array = val_flow_embedding.adjacency_array_data();
+    int val_flow_len = val_flow_embedding.adjacency_array_size() * sizeof(int);
+
+    int *embedding = (int *)xmalloc(autophase_len + cfg_len + val_flow_len);
+    memcpy(embedding, autophase_array, autophase_len);
+    memcpy(embedding + autophase_len / 4, cfg_array, cfg_len);
+    memcpy(embedding + autophase_len / 4 + cfg_len / 4, val_flow_array,
+           val_flow_len);
+
+    if (send(socket_fd, embedding, autophase_len + cfg_len + val_flow_len, 0) ==
+        -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
-    autophase_generator.reset();
     return 0;
 }
 

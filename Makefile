@@ -44,7 +44,7 @@ $(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h \
 
 $(BUILD_DIR)/plugin_passes.o: $(INCL_DIR)/gimple_character.hh
 
-plugin.so: $(BUILD_DIR)/gimple_character.o
+plugin.so: $(BUILD_DIR)/gimple_character.o $(BUILD_DIR)/cfg_character.o $(BUILD_DIR)/gimple_val_flow.o 
 
 TEST_SRC_DIR = ir_char_tests
 
