@@ -474,15 +474,10 @@ int* gimple_character::parse_function(function * fun)
     return autophase_embeddings.data();
 }
 
-static bool clear_hash_set(const hash_set<tree>::Key& key, hash_set<tree>* set)
-{
-    set->remove(key);
-    return true;
-}
-
 void gimple_character::reset_pset()
 {
-    walk_info.pset->traverse<hash_set<tree>*, clear_hash_set>(walk_info.pset);
+    for (auto iter =  walk_info.pset->begin (); iter != walk_info.pset->end (); ++iter)
+        walk_info.pset->remove(*iter);
 }
 
 void gimple_character::reset()

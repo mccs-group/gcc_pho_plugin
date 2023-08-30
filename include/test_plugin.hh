@@ -30,17 +30,18 @@ const pass_data gimple_character_data =
 };
 
 
-const pass_data rtl_character_data = {
-			RTL_PASS,
-			"rtl_character",
-			OPTGROUP_NONE,
-			TV_PLUGIN_INIT,
-			0,
-			0,
-			0,
-			0,
-			0,
-		};
+const pass_data rtl_character_data =
+{
+    RTL_PASS,
+    "rtl_character",
+    OPTGROUP_NONE,
+    TV_PLUGIN_INIT,
+    0,
+    0,
+    0,
+    0,
+    0,
+};
 
 class gimple_character_pass: public gimple_opt_pass
 {
@@ -56,7 +57,7 @@ class gimple_character_pass: public gimple_opt_pass
         VAL_FLOW,
     };
 
-    characterisations cur = VAL_FLOW;
+    characterisations cur = AUTOPHASE_LIKE;
 
 
 public:
@@ -77,6 +78,11 @@ public:
                 break;
             case AUTOPHASE_LIKE:
                 characteriser.parse_function(fun);
+                // for (int i = 0; i < characteriser.CHARACTERISTICS_AMOUNT; i++)
+                // {
+                //     std::cout << *(characteriser.data() + i) << ", ";
+                // }
+                // std::cout << std::endl;
                 characteriser.reset();
                 break;
             case CFG:
