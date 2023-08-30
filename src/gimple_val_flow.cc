@@ -3,8 +3,18 @@
 #include <queue>
 #include <string_view>
 
-static
-bool aliased_vdef_callback(ao_ref * ref , tree node, void * val_flow_char)
+void val_flow_character::set_edge(unsigned def_stmt_id, unsigned use_stmt_id)
+{
+    if (get_full_embed)
+        def_use_matrix(def_stmt_id, use_stmt_id) += 1;
+    else
+    {
+        adjacency_array.push_back(def_stmt_id);
+        adjacency_array.push_back(use_stmt_id);
+    }
+}
+
+static bool aliased_vdef_callback(ao_ref * ref , tree node, void * val_flow_char)
 {
     val_flow_character* characteriser = reinterpret_cast<val_flow_character*>(val_flow_char);
     return characteriser->handle_aliased_vdef(ref, node);
@@ -14,12 +24,60 @@ static tree val_flow_stmt_callback(gimple_stmt_iterator* i, bool* handled_op, st
 {
     *handled_op = true;
     val_flow_character* characteriser = reinterpret_cast<val_flow_character*>(wi->info);
-    return characteriser->handle_stmt(gsi_stmt (*i));
+    return characteriser->process_stmt(gsi_stmt (*i));
+}
+
+bool val_flow_character::check_call_for_alias(gimple* def_stmt)
+{
+    #if VAL_FLOW_GET_DEBUG
+    std::cout << "analysing call as smth" << std::endl;
+    #endif
+    tree call_arg;
+    for (int i = 0; i < gimple_call_num_args(def_stmt); i++)
+    {
+        call_arg = gimple_call_arg(def_stmt, i);
+        #if VAL_FLOW_GET_DEBUG
+        std::cout << "check unchanged:" << std::endl;
+        #endif
+        if (refs_may_alias_p(current_load_node, call_arg))
+        {
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "found alias" << std::endl;
+            std::cout << "returning " << std::boolalpha << function_ith_arg_def(gimple_call_fndecl(def_stmt), i, 0) << std::endl;
+            #endif
+            return function_ith_arg_def(gimple_call_fndecl(def_stmt), i, 0);
+        }
+
+        for (int call_arg_ref_depth = 1; TREE_CODE(call_arg) == ADDR_EXPR; call_arg_ref_depth++)
+        {
+            call_arg = TREE_OPERAND(call_arg, 0);
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "on arg " << i << " with depth " << call_arg_ref_depth << std::endl;
+            if (auto name = get_name(call_arg))
+                std::cout << name;
+            std::cout << "_" << SSA_NAME_VERSION(call_arg) << " ";
+            if (auto current_name = get_name(current_load_node))
+                std::cout << current_name;
+            
+            std::cout << "_" << SSA_NAME_VERSION(current_load_node) << std::endl;
+            #endif
+
+            if (refs_may_alias_p(current_load_node, call_arg))
+            {
+                #if VAL_FLOW_GET_DEBUG
+                std::cout << "found alias" << std::endl;
+                std::cout << "returning " << std::boolalpha << function_ith_arg_def(gimple_call_fndecl(def_stmt), i, call_arg_ref_depth) << std::endl;
+                #endif
+                return function_ith_arg_def(gimple_call_fndecl(def_stmt), i, call_arg_ref_depth);
+            }
+        }
+    }
+    return false;
 }
 
 bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
 {
-    #if VAL_FLOW_DEBUG
+    #if VAL_FLOW_GET_DEBUG
     if (get_name(node))
         std::cout << "in node " << get_name(node) << SSA_NAME_VERSION(node) << std::endl;
     else
@@ -27,6 +85,22 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
     #endif
 
     gimple *def_stmt = SSA_NAME_DEF_STMT (node);
+
+    if ((def_stmt->code == GIMPLE_CALL) && gimple_call_fndecl(def_stmt))
+    {
+        if (check_call_for_alias(def_stmt))
+        {
+            set_edge(def_stmt->uid, current_gs->uid);
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "Hey, i am returning true between " << def_stmt->uid << " " << current_gs->uid << std::endl;
+            #endif
+            return true;
+        }
+        #if VAL_FLOW_GET_DEBUG
+        std::cout << "no luck sir" << std::endl;
+        #endif
+    }
+
     if (!gimple_store_p(def_stmt))
         return false;
 
@@ -36,7 +110,7 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
 
     if (refs_may_alias_p(current_load_node, def_stmt_lhs))
     {
-        #if VAL_FLOW_DEBUG
+        #if VAL_FLOW_GET_DEBUG
         if (const char* rhs_name = get_name(current_load_node))
             std::cout << rhs_name << SSA_NAME_VERSION(current_load_node) << " which is ";
         std::cout << "rhs of stmt id " << current_gs->uid << " collides with";
@@ -48,18 +122,12 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
         std::cout << std::endl;
         #endif
 
-        if (get_full_embed)
-            def_use_matrix(def_stmt->uid, current_gs->uid) += 1;
-        else
-        {
-            adjacency_array.push_back(def_stmt->uid);
-            adjacency_array.push_back(current_gs->uid);
-        }
+        set_edge(def_stmt->uid, current_gs->uid);
         return true;
     }
     else
     {
-        #if VAL_FLOW_DEBUG
+        #if VAL_FLOW_GET_DEBUG
         if (const char* rhs_name = get_name(current_load_node))
             std::cout << rhs_name << SSA_NAME_VERSION(current_load_node) << " which is ";
         std::cout << "rhs of stmt id " << current_gs->uid << " DOES NOT collide with";
@@ -75,11 +143,66 @@ bool val_flow_character::handle_aliased_vdef(ao_ref* ref , tree node)
     return false;
 }
 
-
-
-void val_flow_character::handle_assign(gimple* gs)
+bool val_flow_character::function_ith_arg_def(tree fun_decl, int arg_index, int arg_ref_depth)
 {
-    #if VAL_FLOW_DEBUG
+    tree arg;
+    arg = TYPE_ARG_TYPES (TREE_TYPE(fun_decl));
+    for (int i = 0; arg && arg != void_list_node && arg != error_mark_node && (i != arg_index); i++, arg = TREE_CHAIN(arg))
+    ;
+
+    if (!arg)
+        return false;
+
+    arg = TREE_VALUE(arg);
+
+    for (int i = 0; i < arg_ref_depth; i++, arg = TREE_TYPE(arg))
+    ;
+
+    return !(TYPE_QUALS(arg) & TYPE_QUAL_CONST);
+}
+
+
+void val_flow_character::process_call(gimple* gs)
+{
+    #if VAL_FLOW_GET_DEBUG
+    std::cout << "parsing call" << std::endl;
+    print_gimple_stmt(stdout, gs, 0, TDF_SLIM);
+    #endif
+    tree fndecl = gimple_call_fndecl(gs);
+    if (fndecl == NULL)
+    {
+        #if VAL_FLOW_GET_DEBUG
+        std::cout << "well, i tried" << std::endl;
+        tree fn = gimple_call_fn(gs);
+        std::cout << tree_node_names[TREE_CODE(fn)] << std::endl;
+        #endif
+        return;
+    }
+
+    int arg_amount = gimple_call_num_args(gs);
+
+    tree call_arg;
+    for (int i = 0; i < arg_amount; i++)
+    {
+        call_arg = gimple_call_arg(gs, i);
+        for (; TREE_CODE(call_arg) == ADDR_EXPR; call_arg = TREE_OPERAND(call_arg, 0))
+        ;
+
+        if (!((TREE_CODE(call_arg) == SSA_NAME) || (TREE_CODE(call_arg) == FUNCTION_DECL) || (tree_code_type[TREE_CODE(call_arg)] == tcc_constant)))
+        {
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "interesting arg# " << i << " : " << tree_node_names[TREE_CODE(call_arg)] << " ";
+            #endif
+            current_load_node = call_arg;
+            init_walk_aliased_vdefs();
+        }
+    }
+}
+
+
+void val_flow_character::process_assign(gimple* gs)
+{
+    #if VAL_FLOW_GET_DEBUG
     if (const char* assign_rhs_name = get_name(gimple_assign_rhs1(gs)))
         std::cout << "assign from " << assign_rhs_name;
     std::cout << SSA_NAME_VERSION(gimple_assign_rhs1(gs)) << std::endl;
@@ -93,15 +216,21 @@ void val_flow_character::handle_assign(gimple* gs)
     init_walk_aliased_vdefs();
 }
 
-tree val_flow_character::handle_stmt(gimple* gs)
+tree val_flow_character::process_stmt(gimple* gs)
 {
     current_gs = gs;
 
-    if (gs->code == GIMPLE_ASSIGN)
+    switch(gs->code)
     {
-        handle_assign(gs);
+        case GIMPLE_ASSIGN:
+            process_assign(gs);
+            break;
+        case GIMPLE_CALL:
+            process_call(gs);
+            break;
+        default:
+            break;
     }
-
     return NULL;
 }
 
@@ -112,7 +241,7 @@ void val_flow_character::init_walk_aliased_vdefs()
     ao_ref_init (&refd, current_load_node);
     if (auto vuse_node = gimple_vuse (current_gs))
     {
-        #if VAL_FLOW_DEBUG
+        #if VAL_FLOW_GET_DEBUG
         if (auto vuse_node_name = get_name(vuse_node))
             std::cout << "STMT VUSE is " << vuse_node_name << "_" << SSA_NAME_VERSION(vuse_node) << std::endl;
         else
@@ -138,8 +267,7 @@ void val_flow_character::get_adjacency_array(function* fun)
 void val_flow_character::parse_function(function * fun)
 {
     reset();
-    // if (fun->last_stmt_uid <= 3)
-    //     return;
+
     get_full_embed = true;
     stmt_amount = fun->last_stmt_uid;
     def_use_matrix = Eigen::MatrixXd::Zero(stmt_amount, stmt_amount);
@@ -153,8 +281,10 @@ void val_flow_character::parse_function(function * fun)
     compress(D_src_embed.data());
     compress(D_dst_embed.data());
 
-    // for (auto&& it : val_flow_embed)
-    //     std::cout << it << " ";
+    #if VAL_FLOW_EMBED_DEBUG
+    for (auto&& it : val_flow_embed)
+        std::cout << it << " ";
+    #endif
 }
 
 void val_flow_character::get_val_flow_matrix(function* fun)
@@ -163,10 +293,6 @@ void val_flow_character::get_val_flow_matrix(function* fun)
 
     FOR_ALL_BB_FN(bb, fun)
     {
-        // std::cout << "---------bb_" << bb->index << "_start--------" << std::endl;
-
-        // gimple_dump_bb(stdout, bb, 0, TDF_SLIM | TDF_ALIAS | TDF_VOPS);
-
         gimple_bb_info *bb_info = &bb->il.gimple;
         gimple_seq seq = bb_info->seq;
 
@@ -175,7 +301,7 @@ void val_flow_character::get_val_flow_matrix(function* fun)
         for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
         {
             get_stmt_def_use(gsi_stmt (i));
-            #if VAL_FLOW_DEBUG
+            #if VAL_FLOW_GET_DEBUG
             std::cout << "in " << gimple_stmt_names[gimple_code ((gsi_stmt(i)))] << " id : " << gsi_stmt(i)->uid << std::endl;
             print_gimple_stmt(stdout, gsi_stmt(i), 0, TDF_SLIM);
             #endif
@@ -187,10 +313,11 @@ void val_flow_character::get_val_flow_matrix(function* fun)
 
         for (pi = gsi_start_phis (bb); !gsi_end_p (pi); gsi_next (&pi))
         {
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "phi id: " << pi.phi()->uid << std::endl;
+            #endif
             get_stmt_def_use(pi.phi());
         }
-
-        // std::cout << "---------bb_" << bb->index << "_end--------" << std::endl;
     }
 }
 
@@ -216,7 +343,9 @@ void val_flow_character::get_embed_matrices()
 
     if (!no_nan_matrix(U_mat.colwise().begin(), U_mat.colwise().end()) || !no_nan_matrix(V_mat.colwise().begin(), V_mat.colwise().end()))
     {
-        // std::cout << "had to apply jac svd" << std::endl;
+        #if VAL_FLOW_EMBED_DEBUG
+        std::cout << "had to apply jac svd" << std::endl;
+        #endif
         Eigen::JacobiSVD<Eigen::MatrixXd> jac_svd(proximity_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
         U_mat = jac_svd.matrixU();
         V_mat = jac_svd.matrixV();
@@ -232,21 +361,23 @@ void val_flow_character::get_embed_matrices()
     D_src(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = U_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
     D_dst(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = V_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
 
-    // if (stmt_amount < 20)
-    // {
-    //     std::cout << "====================" << std::endl;
+    #if VAL_FLOW_EMBED_DEBUG
+    if (stmt_amount < 20)
+    {
+        std::cout << "====================" << std::endl;
 
-    //     std::cout << svd.matrixU() << std::endl;
-    //     std::cout << svd.matrixV() << std::endl;
+        std::cout << svd.matrixU() << std::endl;
+        std::cout << svd.matrixV() << std::endl;
 
-    //     std::cout << "==========+=========" << std::endl;
+        std::cout << "==========+=========" << std::endl;
 
-    //     std::cout << D_src << std::endl;
-    //     std::cout << "and dst:" << std::endl;
-    //     std::cout << D_dst << std::endl;
+        std::cout << D_src << std::endl;
+        std::cout << "and dst:" << std::endl;
+        std::cout << D_dst << std::endl;
 
-    //     std::cout << "==========+=========" << std::endl;
-    // }
+        std::cout << "==========+=========" << std::endl;
+    }
+    #endif
 
     int elem_count = D_matrix_characterisation_len * D_mat_rows;
 
@@ -271,7 +402,6 @@ void val_flow_character::compress(double* data)
             tSNEcompressor.set_perplexity(1);
         else
             tSNEcompressor.set_perplexity(D_matrix_characterisation_len / 3 - 1);
-        // std::cout << "perplex: " << (D_matrix_characterisation_len / 3 - 1) << std::endl;
     }
     auto ref = tSNEcompressor.run(data, D_mat_rows, D_matrix_characterisation_len, Y.data());
     std::copy(Y.data(), Y.data() + D_matrix_characterisation_len, std::back_inserter(val_flow_embed));
@@ -289,7 +419,7 @@ void val_flow_character::get_stmt_def_use(gimple* gs)
         return;
     }
 
-    FOR_EACH_SSA_TREE_OPERAND (var, gs, ssa_iter, SSA_OP_ALL_DEFS)
+    FOR_EACH_SSA_TREE_OPERAND (var, gs, ssa_iter, SSA_OP_DEF)
     {
         get_all_ssa_uses(var, gs);
     }
@@ -298,7 +428,7 @@ void val_flow_character::get_stmt_def_use(gimple* gs)
 void val_flow_character::get_all_ssa_uses(tree ssa_name, gimple* gs)
 {
     int stmt_id = gs->uid;
-    #if VAL_FLOW_DEBUG
+    #if VAL_FLOW_GET_DEBUG
     std::cout << "analysing ssa name ";
     if (const char* full_name = get_name(ssa_name))
         std::cout << full_name;
@@ -310,15 +440,7 @@ void val_flow_character::get_all_ssa_uses(tree ssa_name, gimple* gs)
 
     FOR_EACH_IMM_USE_STMT (stmt, use_it, ssa_name)
     {
-        if(get_full_embed)
-        {
-            def_use_matrix(stmt_id, stmt->uid) += 1;
-        }
-        else
-        {
-            adjacency_array.push_back(stmt_id);
-            adjacency_array.push_back(stmt->uid);
-        }
+        set_edge(stmt_id, stmt->uid);
     }
 }
 
@@ -330,13 +452,8 @@ void val_flow_character::reset()
     adjacency_array.clear();
 }
 
-static bool clear_hash_set(const hash_set<tree>::Key& key, hash_set<tree>* set)
-{
-    set->remove(key);
-    return true;
-}
-
 void val_flow_character::reset_walk_info()
 {
-    walk_info.pset->traverse<hash_set<tree>*, clear_hash_set>(walk_info.pset);
+    for (auto iter =  walk_info.pset->begin (); iter != walk_info.pset->end (); ++iter)
+        walk_info.pset->remove(*iter);
 }

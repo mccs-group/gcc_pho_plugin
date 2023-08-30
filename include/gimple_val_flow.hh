@@ -36,7 +36,8 @@
 
 #include "ssa-iterators.h"
 
-#define VAL_FLOW_DEBUG 0
+#define VAL_FLOW_GET_DEBUG 0
+#define VAL_FLOW_EMBED_DEBUG 0
 
 class val_flow_character
 {
@@ -47,6 +48,7 @@ class val_flow_character
     std::vector<double> D_dst_embed;
 
     std::vector<double> val_flow_embed;
+
     std::vector<int> adjacency_array;
 
     walk_stmt_info walk_info;
@@ -65,6 +67,7 @@ public:
     int max_path_length = 3;
     int D_matrix_characterisation_len = STANDART_D_MAT_OBS_LEN;
 
+private:
     int embed_vec_len = 0;
     int D_mat_rows = 0;
 
@@ -87,6 +90,13 @@ private:
 
     void init_walk_aliased_vdefs();
 
+    void process_assign(gimple* stmt);
+    void process_call(gimple* stmt);
+
+    bool check_call_for_alias(gimple* def_stmt);
+
+    bool function_ith_arg_def(tree fun_decl, int index, int arg_ref_depth);
+    void set_edge(unsigned def_stmt_id, unsigned use_stmt_id);
 public:
     val_flow_character()
     {
@@ -116,13 +126,9 @@ public:
     int adjacency_array_size() { return adjacency_array.size(); }
 
     void parse_function(function* fun);
-
     double* data(){return val_flow_embed.data();};
 
-    tree handle_stmt(gimple* stmt);
-    void handle_assign(gimple* stmt);
-    void handle_call(gimple* stmt);
-    bool function_ith_arg_const(tree fun_decl, int index);
+    tree process_stmt(gimple* stmt);
     bool handle_aliased_vdef(ao_ref* ref , tree node);
 
     void reset();
