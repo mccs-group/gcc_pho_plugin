@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 #include <array>
+#include <unordered_set>
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -53,7 +54,7 @@ class val_flow_character
 
     walk_stmt_info walk_info;
 
-    #if VAL_FLOW_DEBUG
+    #if VAL_FLOW_GET_DEBUG
     std::vector<std::string> gimple_stmt_names;
     #endif
     std::vector<std::string> tree_node_names;
@@ -75,6 +76,9 @@ private:
 
     gimple* current_gs = nullptr;
     tree current_load_node = nullptr;
+
+    std::unordered_set<int> bb_unique;
+    std::unordered_set<gimple*> gimple_unique;
 
 private:
 
@@ -100,7 +104,7 @@ private:
 public:
     val_flow_character()
     {
-        #if VAL_FLOW_DEBUG
+        #if VAL_FLOW_GET_DEBUG
         #define DEFGSCODE(SYM, STRING, STRUCT)	gimple_stmt_names.push_back(STRING);
         #include "gimple.def"
         #undef DEFGSCODE

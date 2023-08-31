@@ -293,6 +293,16 @@ void val_flow_character::get_val_flow_matrix(function* fun)
 
     FOR_ALL_BB_FN(bb, fun)
     {
+        if (bb_unique.find(bb->index) != bb_unique.end())
+        {
+            std::cerr << "My basic blocks are broken: fun name: " << function_name(fun) << std::endl;
+            return;
+        }
+        else
+        {
+            bb_unique.insert(bb->index);
+        }
+
         gimple_bb_info *bb_info = &bb->il.gimple;
         gimple_seq seq = bb_info->seq;
 
@@ -300,7 +310,18 @@ void val_flow_character::get_val_flow_matrix(function* fun)
 
         for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
         {
-            get_stmt_def_use(gsi_stmt (i));
+            gimple* stmt = gsi_stmt (i);
+            if (gimple_unique.find(stmt) != gimple_unique.end())
+            {
+                std::cerr << "My stmts are broken: fun name: " << function_name(fun) << std::endl;
+                return;
+            }
+            else
+            {
+                gimple_unique.insert(stmt);
+            }
+
+            get_stmt_def_use(stmt);
             #if VAL_FLOW_GET_DEBUG
             std::cout << "in " << gimple_stmt_names[gimple_code ((gsi_stmt(i)))] << " id : " << gsi_stmt(i)->uid << std::endl;
             print_gimple_stmt(stdout, gsi_stmt(i), 0, TDF_SLIM);
@@ -316,7 +337,18 @@ void val_flow_character::get_val_flow_matrix(function* fun)
             #if VAL_FLOW_GET_DEBUG
             std::cout << "phi id: " << pi.phi()->uid << std::endl;
             #endif
-            get_stmt_def_use(pi.phi());
+            gimple* phi_stmt = pi.phi();
+            if (gimple_unique.find(phi_stmt) != gimple_unique.end())
+            {
+                std::cerr << "My stmts are broken: fun name: " << function_name(fun) << std::endl;
+                return;
+            }
+            else
+            {
+                gimple_unique.insert(phi_stmt);
+            }
+
+            get_stmt_def_use(phi_stmt);
         }
     }
 }
@@ -446,6 +478,8 @@ void val_flow_character::get_all_ssa_uses(tree ssa_name, gimple* gs)
 
 void val_flow_character::reset()
 {
+    gimple_unique.clear();
+    bb_unique.clear();
     D_src_embed.clear();
     D_dst_embed.clear();
     val_flow_embed.clear();
