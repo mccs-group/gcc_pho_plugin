@@ -8,6 +8,7 @@
 #include <string>
 #include <array>
 #include <unordered_set>
+#include <queue>
 
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -51,6 +52,7 @@ class val_flow_character
     std::vector<double> val_flow_embed;
 
     std::vector<int> adjacency_array;
+    std::priority_queue<int> phi_nodes_with_virt_op;
 
     walk_stmt_info walk_info;
 
@@ -101,6 +103,7 @@ private:
 
     bool function_ith_arg_def(tree fun_decl, int index, int arg_ref_depth);
     void set_edge(unsigned def_stmt_id, unsigned use_stmt_id);
+    void remove_virt_op_phi();
 public:
     val_flow_character()
     {

@@ -253,6 +253,19 @@ void val_flow_character::init_walk_aliased_vdefs()
     }
 }
 
+void val_flow_character::remove_virt_op_phi()
+{
+    while(!phi_nodes_with_virt_op.empty())
+    {
+        int phi_node_id = phi_nodes_with_virt_op.top();
+        phi_nodes_with_virt_op.pop();
+
+        auto&& decrease_lambda = [phi_node_id](int num){ if (num > phi_node_id) num--; return num; };
+
+        std::transform(adjacency_array.begin(), adjacency_array.end(), adjacency_array.begin(), decrease_lambda);
+    }
+}
+
 void val_flow_character::get_adjacency_array(function* fun)
 {
     reset();
@@ -262,6 +275,7 @@ void val_flow_character::get_adjacency_array(function* fun)
     adjacency_array.push_back(stmt_amount);
 
     get_val_flow_matrix(fun);
+    remove_virt_op_phi();
 }
 
 void val_flow_character::parse_function(function * fun)
@@ -334,10 +348,10 @@ void val_flow_character::get_val_flow_matrix(function* fun)
 
         for (pi = gsi_start_phis (bb); !gsi_end_p (pi); gsi_next (&pi))
         {
-            #if VAL_FLOW_GET_DEBUG
-            std::cout << "phi id: " << pi.phi()->uid << std::endl;
-            #endif
             gimple* phi_stmt = pi.phi();
+            #if VAL_FLOW_GET_DEBUG
+            std::cout << "phi id: " << phi_stmt->uid << std::endl;
+            #endif
             if (gimple_unique.find(phi_stmt) != gimple_unique.end())
             {
                 std::cerr << "My stmts are broken: fun name: " << function_name(fun) << std::endl;
@@ -348,7 +362,10 @@ void val_flow_character::get_val_flow_matrix(function* fun)
                 gimple_unique.insert(phi_stmt);
             }
 
-            get_stmt_def_use(phi_stmt);
+            if (!virtual_operand_p(gimple_phi_result(phi_stmt)))
+                get_stmt_def_use(phi_stmt);
+            else
+                phi_nodes_with_virt_op.push(phi_stmt->uid);
         }
     }
 }
