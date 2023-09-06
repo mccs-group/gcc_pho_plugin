@@ -1,5 +1,6 @@
 #include "gimple_val_flow.hh"
 
+#include "tree-dfa.h"
 #include <queue>
 #include <string_view>
 
@@ -156,6 +157,21 @@ bool val_flow_character::function_ith_arg_def(tree fun_decl, int arg_index, int 
     return !(TYPE_QUALS(arg) & TYPE_QUAL_CONST);
 }
 
+void val_flow_character::process_return(gimple* gs)
+{
+    tree return_val = gimple_return_retval(static_cast<greturn*>(gs));
+    if (!return_val)
+        return;
+
+    if ((TREE_CODE(return_val) == SSA_NAME) || (TREE_CODE(return_val) == FUNCTION_DECL) || (tree_code_type[TREE_CODE(return_val)] == tcc_constant))
+        return;
+
+    #if VAL_FLOW_GET_DEBUG
+    std::cout << "interesting retval " << " : " << tree_node_names[TREE_CODE(return_val)] << std::endl;
+    #endif
+    current_load_node = return_val;
+    init_walk_aliased_vdefs();
+}
 
 void val_flow_character::process_call(gimple* gs)
 {
@@ -223,6 +239,9 @@ tree val_flow_character::process_stmt(gimple* gs)
         case GIMPLE_CALL:
             process_call(gs);
             break;
+        case GIMPLE_RETURN:
+            process_return(gs);
+            break;
         default:
             break;
     }
@@ -269,6 +288,7 @@ void val_flow_character::get_adjacency_array(function* fun)
     adjacency_array.reserve(stmt_amount * 2);
     adjacency_array.push_back(stmt_amount);
 
+    renumber_gimple_stmt_uids();
     get_val_flow_matrix(fun);
     remove_virt_op_phi();
 }

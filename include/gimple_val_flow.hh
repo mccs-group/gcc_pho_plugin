@@ -70,6 +70,7 @@ private:
     void process_return(gimple* gs);
 
     bool check_call_for_alias(gimple* def_stmt);
+    void renumber_stmt_uids();
 
     bool function_ith_arg_def(tree fun_decl, int index, int arg_ref_depth);
     void set_edge(unsigned def_stmt_id, unsigned use_stmt_id);
