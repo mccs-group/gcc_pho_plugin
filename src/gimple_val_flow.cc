@@ -5,13 +5,8 @@
 
 void val_flow_character::set_edge(unsigned def_stmt_id, unsigned use_stmt_id)
 {
-    if (get_full_embed)
-        def_use_matrix(def_stmt_id, use_stmt_id) += 1;
-    else
-    {
-        adjacency_array.push_back(def_stmt_id);
-        adjacency_array.push_back(use_stmt_id);
-    }
+    adjacency_array.push_back(def_stmt_id);
+    adjacency_array.push_back(use_stmt_id);
 }
 
 static bool aliased_vdef_callback(ao_ref * ref , tree node, void * val_flow_char)
@@ -173,8 +168,8 @@ void val_flow_character::process_call(gimple* gs)
     {
         #if VAL_FLOW_GET_DEBUG
         std::cout << "well, i tried" << std::endl;
-        tree fn = gimple_call_fn(gs);
-        std::cout << tree_node_names[TREE_CODE(fn)] << std::endl;
+        // tree fn = gimple_call_fn(gs);
+        // std::cout << tree_node_names[TREE_CODE(fn)] << std::endl;
         #endif
         return;
     }
@@ -278,29 +273,6 @@ void val_flow_character::get_adjacency_array(function* fun)
     remove_virt_op_phi();
 }
 
-void val_flow_character::parse_function(function * fun)
-{
-    reset();
-
-    get_full_embed = true;
-    stmt_amount = fun->last_stmt_uid;
-    def_use_matrix = Eigen::MatrixXd::Zero(stmt_amount, stmt_amount);
-
-    get_val_flow_matrix(fun);
-    get_proximity_matrix();
-    get_embed_matrices();
-
-    val_flow_embed.reserve(2 * D_matrix_characterisation_len);
-
-    compress(D_src_embed.data());
-    compress(D_dst_embed.data());
-
-    #if VAL_FLOW_EMBED_DEBUG
-    for (auto&& it : val_flow_embed)
-        std::cout << it << " ";
-    #endif
-}
-
 void val_flow_character::get_val_flow_matrix(function* fun)
 {
     basic_block bb;
@@ -370,91 +342,7 @@ void val_flow_character::get_val_flow_matrix(function* fun)
     }
 }
 
-void val_flow_character::get_proximity_matrix()
-{
-    double decay = decay_param;
-    Eigen::MatrixXd def_use_matrix_power = def_use_matrix;
-    proximity_matrix = Eigen::MatrixXd::Zero(def_use_matrix.rows(), def_use_matrix.cols());
-    for (int i = 0; i < max_path_length; i++)
-    {
-        proximity_matrix += decay * def_use_matrix_power;
-        decay *= decay_param;
-        def_use_matrix_power *= def_use_matrix;
-    }
-}
 
-void val_flow_character::get_embed_matrices()
-{
-    Eigen::BDCSVD<Eigen::MatrixXd> svd(proximity_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    Eigen::MatrixXd U_mat = svd.matrixU();
-    Eigen::MatrixXd V_mat = svd.matrixV();
-
-    if (!no_nan_matrix(U_mat.colwise().begin(), U_mat.colwise().end()) || !no_nan_matrix(V_mat.colwise().begin(), V_mat.colwise().end()))
-    {
-        #if VAL_FLOW_EMBED_DEBUG
-        std::cout << "had to apply jac svd" << std::endl;
-        #endif
-        Eigen::JacobiSVD<Eigen::MatrixXd> jac_svd(proximity_matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-        U_mat = jac_svd.matrixU();
-        V_mat = jac_svd.matrixV();
-
-    }
-
-    embed_vec_len = std::min<long int>(stmt_amount, D_matrix_characterisation_len);
-    D_mat_rows = std::max<long int>(stmt_amount, D_matrix_characterisation_len);
-
-    Eigen::MatrixXd D_src = Eigen::MatrixXd::Zero(D_mat_rows, D_matrix_characterisation_len);
-    Eigen::MatrixXd D_dst = Eigen::MatrixXd::Zero(D_mat_rows, D_matrix_characterisation_len);
-
-    D_src(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = U_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
-    D_dst(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len)) = V_mat(Eigen::seqN(0, stmt_amount), Eigen::seqN(0,embed_vec_len));
-
-    #if VAL_FLOW_EMBED_DEBUG
-    if (stmt_amount < 20)
-    {
-        std::cout << "====================" << std::endl;
-
-        std::cout << svd.matrixU() << std::endl;
-        std::cout << svd.matrixV() << std::endl;
-
-        std::cout << "==========+=========" << std::endl;
-
-        std::cout << D_src << std::endl;
-        std::cout << "and dst:" << std::endl;
-        std::cout << D_dst << std::endl;
-
-        std::cout << "==========+=========" << std::endl;
-    }
-    #endif
-
-    int elem_count = D_matrix_characterisation_len * D_mat_rows;
-
-    D_src_embed.reserve(elem_count);
-    D_dst_embed.reserve(elem_count);
-
-    std::copy(D_src.data(), D_src.data() + elem_count, std::back_inserter(D_src_embed));
-    std::copy(D_dst.data(), D_dst.data() + elem_count, std::back_inserter(D_dst_embed));
-
-}
-
-void val_flow_character::compress(double* data)
-{
-    static constexpr int ndim = 1;
-    auto Y = qdtsne::initialize_random<ndim>(D_matrix_characterisation_len);
-
-    qdtsne::Tsne<ndim> tSNEcompressor;
-
-    if (3 * qdtsne::Tsne<ndim, double>::Defaults::perplexity >= D_matrix_characterisation_len)
-    {
-        if (D_matrix_characterisation_len < 6)
-            tSNEcompressor.set_perplexity(1);
-        else
-            tSNEcompressor.set_perplexity(D_matrix_characterisation_len / 3 - 1);
-    }
-    auto ref = tSNEcompressor.run(data, D_mat_rows, D_matrix_characterisation_len, Y.data());
-    std::copy(Y.data(), Y.data() + D_matrix_characterisation_len, std::back_inserter(val_flow_embed));
-}
 
 
 void val_flow_character::get_stmt_def_use(gimple* gs)
@@ -497,9 +385,6 @@ void val_flow_character::reset()
 {
     gimple_unique.clear();
     bb_unique.clear();
-    D_src_embed.clear();
-    D_dst_embed.clear();
-    val_flow_embed.clear();
     adjacency_array.clear();
 }
 
