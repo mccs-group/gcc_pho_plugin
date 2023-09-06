@@ -146,14 +146,16 @@ unsigned int embedding_send_pass::execute(function *fun)
     int *val_flow_array = val_flow_embedding.adjacency_array_data();
     int val_flow_len = val_flow_embedding.adjacency_array_size() * sizeof(int);
 
-    int *embedding = (int *)xmalloc(autophase_len + cfg_len + val_flow_len);
+    int *embedding =
+        (int *)xmalloc(autophase_len + cfg_len + val_flow_len + sizeof(int));
     memcpy(embedding, autophase_array, autophase_len);
-    memcpy(embedding + autophase_len / 4, cfg_array, cfg_len);
-    memcpy(embedding + autophase_len / 4 + cfg_len / 4, val_flow_array,
+    memcpy(embedding + autophase_len / 4 + 1, cfg_array, cfg_len);
+    memcpy(embedding + autophase_len / 4 + cfg_len / 4 + 1, val_flow_array,
            val_flow_len);
+    embedding[47] = cfg_len / 4;
 
-    if (send(socket_fd, embedding, autophase_len + cfg_len + val_flow_len, 0) ==
-        -1) {
+    if (send(socket_fd, embedding,
+             sizeof(int) + autophase_len + cfg_len + val_flow_len, 0) == -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
     return 0;
