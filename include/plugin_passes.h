@@ -25,7 +25,7 @@ class list_recv_pass : public opt_pass {
   public:
     list_recv_pass(const pass_data &data, gcc::context *g, int socket_fd)
         : opt_pass(data, g), socket_fd{socket_fd},
-          input_buf((char *)xmalloc(4096))
+          input_buf((char *)xmalloc(4096)), base_seq_start(NULL)
     {
     }
 
@@ -33,6 +33,7 @@ class list_recv_pass : public opt_pass {
 
     int socket_fd;
     char *input_buf;
+    opt_pass *base_seq_start;
 
     opt_pass *clone() override { return new list_recv_pass(*this); }
 

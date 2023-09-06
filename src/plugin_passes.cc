@@ -33,12 +33,6 @@ unsigned int list_recv_pass::execute(function *fun)
 
     char *pass_list = input_buf;
 
-    // Do not clean pass tree if there is nothing to put
-    if (pass_list[0] == 0) {
-        memset(input_buf, 0, 4096);
-        return 0;
-    }
-
     opt_pass *pass = next;
     opt_pass *prev_pass = NULL;
     const char *dummy_name = "*plugin_dummy_pass_end_list";
@@ -50,14 +44,22 @@ unsigned int list_recv_pass::execute(function *fun)
         internal_error("dynamic replace plugin pass could not find list end\n");
     }
 
-    if (prev_pass != NULL) {
+    // If working with initial tree, separate list but preserve passes for
+    // future baseline calculations
+    if ((base_seq_start == NULL) || (next == base_seq_start)) {
+        base_seq_start = next;
+        next = pass;
+    } else if (prev_pass != NULL) {
         prev_pass->next = NULL;
         delete_pass_tree(next);
         next = pass;
     }
 
-    // This allows getting unoptimized embedding in learning mode
-    if (pass_list[0] != '?') {
+    if (pass_list[0] == 0) { // Put initial tree
+        next = base_seq_start;
+        memset(input_buf, 0, 4096);
+    } else if (pass_list[0] != '?') { // This allows getting unoptimized
+                                      // embedding in learning mode
         char *pass_name = strtok(pass_list, "\n");
         while (pass_name) {
             opt_pass *pass_to_insert = pass_by_name(pass_name);
@@ -149,10 +151,10 @@ unsigned int embedding_send_pass::execute(function *fun)
     int *embedding =
         (int *)xmalloc(autophase_len + cfg_len + val_flow_len + sizeof(int));
     memcpy(embedding, autophase_array, autophase_len);
-    memcpy(embedding + autophase_len / 4 + 1, cfg_array, cfg_len);
-    memcpy(embedding + autophase_len / 4 + cfg_len / 4 + 1, val_flow_array,
-           val_flow_len);
-    embedding[47] = cfg_len / 4;
+    memcpy(embedding + autophase_len / sizeof(int) + 1, cfg_array, cfg_len);
+    memcpy(embedding + autophase_len / sizeof(int) + cfg_len / sizeof(int) + 1,
+           val_flow_array, val_flow_len);
+    embedding[47] = cfg_len / sizeof(int);
 
     if (send(socket_fd, embedding,
              sizeof(int) + autophase_len + cfg_len + val_flow_len, 0) == -1) {
