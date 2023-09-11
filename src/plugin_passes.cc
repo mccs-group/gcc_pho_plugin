@@ -44,6 +44,8 @@ unsigned int list_recv_pass::execute(function *fun)
         internal_error("dynamic replace plugin pass could not find list end\n");
     }
 
+    const char* marker_name = pass->name;
+
     // If working with initial tree, separate list but preserve passes for
     // future baseline calculations
     if ((base_seq_start == NULL) || (next == base_seq_start)) {
@@ -71,7 +73,7 @@ unsigned int list_recv_pass::execute(function *fun)
                     IDENTIFIER_POINTER(
                         decl_assembler_name(current_function_decl)));
             }
-            struct register_pass_info pass_data = {pass_to_insert, next->name,
+            struct register_pass_info pass_data = {pass_to_insert, marker_name,
                                                    1, PASS_POS_INSERT_BEFORE};
 
             char *subpass_name = strtok(NULL, "\n");
