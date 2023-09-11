@@ -283,7 +283,6 @@ void val_flow_character::remove_virt_op_phi()
 void val_flow_character::get_adjacency_array(function* fun)
 {
     reset();
-    get_full_embed = false;
     stmt_amount = fun->last_stmt_uid;
     adjacency_array.reserve(stmt_amount * 2);
     adjacency_array.push_back(stmt_amount);
@@ -361,9 +360,6 @@ void val_flow_character::get_val_flow_matrix(function* fun)
         }
     }
 }
-
-
-
 
 void val_flow_character::get_stmt_def_use(gimple* gs)
 {

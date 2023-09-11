@@ -45,8 +45,6 @@ class val_flow_character
     #endif
     std::vector<std::string> tree_node_names;
 
-    bool get_full_embed = true;
-
     gimple* current_gs = nullptr;
     tree current_load_node = nullptr;
     int stmt_amount = 0;
@@ -70,7 +68,6 @@ private:
     void process_return(gimple* gs);
 
     bool check_call_for_alias(gimple* def_stmt);
-    void renumber_stmt_uids();
 
     bool function_ith_arg_def(tree fun_decl, int index, int arg_ref_depth);
     void set_edge(unsigned def_stmt_id, unsigned use_stmt_id);
