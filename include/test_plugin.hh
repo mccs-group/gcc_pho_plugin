@@ -57,8 +57,31 @@ class gimple_character_pass: public gimple_opt_pass
         VAL_FLOW,
     };
 
-    characterisations cur = AUTOPHASE_LIKE;
+    characterisations cur = CFG;
 
+private:
+
+    void report_unusual()
+    {
+        if ((val_char.adjacency_array_size() == 1) && (cfg_char.adjacency_array_size() != 1))
+            std::cout << "Function with no control flow, but with val flow" << std::endl;
+    }
+
+    void report_bad()
+    {
+        if ((val_char.adjacency_array_size() == 1) || (cfg_char.adjacency_array_size() == 1))
+        {
+            std::cout << "Boring function" << std::endl;
+        }
+    }
+
+    template <typename iter>
+    void print_characteristics(iter begin, iter end)
+    {
+        for (; begin != end; begin++)
+            std::cout << *begin << " ";
+        std::cout << std::endl;
+    }
 
 public:
     gimple_character_pass(gcc::context* g) : gimple_opt_pass(gimple_character_data, g)
@@ -78,11 +101,7 @@ public:
                 break;
             case AUTOPHASE_LIKE:
                 characteriser.parse_function(fun);
-                // for (int i = 0; i < characteriser.CHARACTERISTICS_AMOUNT; i++)
-                // {
-                //     std::cout << *(characteriser.data() + i) << ", ";
-                // }
-                // std::cout << std::endl;
+                // print_characteristics(characteriser.data(), characteriser.data() + characteriser.CHARACTERISTICS_AMOUNT);
                 characteriser.reset();
                 break;
             case CFG:
@@ -90,23 +109,18 @@ public:
                 std::cout << fun->cfg->x_n_basic_blocks << std::endl;
                 #endif
                 cfg_char.get_adjacency_array(fun);
-                // for (int i = 0; i < cfg_char.adjacency_array_size(); i++)
-                // {
-                //     std::cout << *(cfg_char.adjacency_array_data() + i) << ", ";
-                // }
-                // std::cout << std::endl;
+                // print_characteristics(cfg_char.adjacency_array_data(), cfg_char.adjacency_array_data() + cfg_char.adjacency_array_size());
 
-                break;
+                // break;
             case VAL_FLOW:
                 #if IF_MEASURE_TIME
                 std::cout << fun->last_stmt_uid << std::endl;
                 #endif
                 val_char.get_adjacency_array(fun);
-                // for (int i = 0; i < val_char.adjacency_array_size(); i++)
-                // {
-                //     std::cout << *(val_char.adjacency_array_data() + i) << ", ";
-                // }
-                // std::cout << std::endl;
+                // print_characteristics(val_char.adjacency_array_data(), val_char.adjacency_array_data() + val_char.adjacency_array_size());
+                // report_unusual();
+                // report_bad();
+
                 break;
             default:
                 break;
