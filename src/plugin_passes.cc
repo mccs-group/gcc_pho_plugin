@@ -44,7 +44,16 @@ unsigned int list_recv_pass::execute(function *fun)
         internal_error("dynamic replace plugin pass could not find list end\n");
     }
 
-    const char* marker_name = pass->name;
+    const char *marker_name = pass->name;
+
+    if (!recorded_next) {
+        next_from_marker = pass->next;
+        recorded_next = true;
+    }
+
+    if (is_inference) {
+        pass->next = next_from_marker;
+    }
 
     // If working with initial tree, separate list but preserve passes for
     // future baseline calculations
@@ -57,6 +66,7 @@ unsigned int list_recv_pass::execute(function *fun)
         next = pass;
     }
 
+    bool to_unloop = false;
     if (pass_list[0] == 0) { // Put initial tree
         next = base_seq_start;
         memset(input_buf, 0, 4096);
@@ -64,6 +74,12 @@ unsigned int list_recv_pass::execute(function *fun)
                                       // embedding in learning mode
         char *pass_name = strtok(pass_list, "\n");
         while (pass_name) {
+
+            if ((is_inference) && (!strcmp(pass_name, "plsstop"))) {
+                to_unloop = true;
+                break;
+            }
+
             opt_pass *pass_to_insert = pass_by_name(pass_name);
             if (pass_to_insert == NULL) {
                 internal_error(
@@ -105,6 +121,10 @@ unsigned int list_recv_pass::execute(function *fun)
     }
 
     memset(input_buf, 0, 4096);
+
+    if ((is_inference) && (!to_unloop)) {
+        pass->next = cycle_start_pass;
+    }
 
     return 0;
 }

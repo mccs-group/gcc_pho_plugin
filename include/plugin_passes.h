@@ -34,6 +34,10 @@ class list_recv_pass : public opt_pass {
     int socket_fd;
     char *input_buf;
     opt_pass *base_seq_start;
+    opt_pass *cycle_start_pass = NULL;
+    opt_pass *next_from_marker = NULL;
+    bool is_inference = false;
+    bool recorded_next = false;
 
     opt_pass *clone() override { return new list_recv_pass(*this); }
 

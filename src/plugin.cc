@@ -322,7 +322,7 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 0,
                 0,
             };
-            opt_pass *list_insert_pass =
+            list_recv_pass *list_insert_pass =
                 new list_recv_pass(list_insert_pass_data, g, gcc_socket);
             struct register_pass_info list_insert_info = {
                 list_insert_pass,
@@ -331,8 +331,6 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 PASS_POS_INSERT_AFTER,
             };
 
-            register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
-                              NULL, &list_insert_info);
             insert_marker_pass(plugin_info, opt_pass_type::GIMPLE_PASS,
                                "local-pure-const", PASS_POS_INSERT_AFTER, 201,
                                "_end_list2");
@@ -352,6 +350,9 @@ int plugin_init(struct plugin_name_args *plugin_info,
             };
             opt_pass *embed_send_pass =
                 new embedding_send_pass(embed_send_pass_data, g, gcc_socket);
+
+            register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
+                              NULL, &list_insert_info);
 
             if ((plugin_info->argv[i].value != NULL) &&
                 (!strcmp(plugin_info->argv[i].value, "learning"))) {
@@ -402,7 +403,11 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 register_callback(plugin_info->base_name,
                                   PLUGIN_PASS_MANAGER_SETUP, NULL,
                                   &embed_send_info);
+
+                list_insert_pass->is_inference = true;
+                list_insert_pass->cycle_start_pass = embed_send_pass;
             }
+            
         }
 
         // print help

@@ -40,7 +40,8 @@ $(SRC_DIR)/pass_makers.cc: pass_makers.conf makers_gen.elf
 	./makers_gen.elf pass_makers.conf > $(SRC_DIR)/pass_makers.cc
 
 $(BUILD_DIR)/plugin.o: $(INCL_DIR)/callbacks.h $(INCL_DIR)/plugin_passes.h \
-	$(INCL_DIR)/gimple_character.hh extern_makers.cc
+	$(INCL_DIR)/gimple_character.hh extern_makers.cc \
+	$(BUILD_DIR)/gimple_character.o $(BUILD_DIR)/cfg_character.o $(BUILD_DIR)/gimple_val_flow.o
 
 $(BUILD_DIR)/plugin_passes.o: $(INCL_DIR)/gimple_character.hh
 
