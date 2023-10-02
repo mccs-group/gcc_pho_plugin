@@ -14,16 +14,30 @@
 #include "coretypes.h"
 #include "errors.h"
 #include "function.h"
+#include "options.h"
+#include "opts.h"
 #include "plugin-version.h"
+#include "target.h"
 #include "tree-pass.h"
+#include "params.h"
 
 static void delete_pass_tree(opt_pass *pass);
+extern struct gcc_target targetm;
+extern diagnostic_context *global_dc;
+extern void maybe_set_param_value(int num, int value, int *params,
+                                  int *params_set);
+extern int default_param_value(int num);
 
 /// This pass clears pass tree till the next nearest
 /// '*plugin_dummy_pass_end_list<num>' and fills it with passes received on
 /// socket
 unsigned int list_recv_pass::execute(function *fun)
 {
+
+    // set internal compiler option corresponding to -Os optimizations
+    struct cl_option_handlers handlers;
+    set_default_handlers(&handlers, targetm.target_option.override);
+    set_level2_size_opts(handlers);
 
     int size = recv(socket_fd, input_buf, 4096, 0);
     if (size == -1) {
@@ -80,6 +94,12 @@ unsigned int list_recv_pass::execute(function *fun)
                 break;
             }
 
+            if (!strcmp(pass_name, "hot_fun")) {
+                set_level2_opts(handlers);
+                pass_name = strtok(NULL, "\n");
+                continue;
+            }
+
             opt_pass *pass_to_insert = pass_by_name(pass_name);
             if (pass_to_insert == NULL) {
                 internal_error(
@@ -127,6 +147,46 @@ unsigned int list_recv_pass::execute(function *fun)
     }
 
     return 0;
+}
+
+/// Function that sets internal compiler parameters as they are for -O2 flag
+void list_recv_pass::set_level2_opts(struct cl_option_handlers handlers)
+{
+    global_options.x_optimize_size = 0;
+    maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS,
+                          default_param_value(PARAM_MIN_CROSSJUMP_INSNS),
+                          global_options.x_param_values,
+                          global_options_set.x_param_values);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_fschedule_insns, NULL, 1, 0, 0, 0, &handlers,
+                            true, global_dc);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_freorder_blocks_algorithm_, NULL,
+                            REORDER_BLOCKS_ALGORITHM_STC, 0, 0, 0, &handlers,
+                            true, global_dc);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_foptimize_strlen, NULL, 1, 0, 0, 0, &handlers,
+                            true, global_dc);
+}
+
+/// Function that sets internal compiler parameters as they are for -Os flag
+void list_recv_pass::set_level2_size_opts(struct cl_option_handlers handlers)
+{
+    global_options.x_optimize_size = 1;
+    maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS, 1,
+                          global_options.x_param_values,
+                          global_options_set.x_param_values);
+    set_default_handlers(&handlers, targetm.target_option.override);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_fschedule_insns, NULL, 0, 0, 0, 0, &handlers,
+                            true, global_dc);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_freorder_blocks_algorithm_, NULL,
+                            REORDER_BLOCKS_ALGORITHM_SIMPLE, 0, 0, 0, &handlers,
+                            true, global_dc);
+    handle_generated_option(&global_options, &global_options_set,
+                            OPT_foptimize_strlen, NULL, 0, 0, 0, 0, &handlers,
+                            true, global_dc);
 }
 
 /// This pass only sends current function name (for identification when

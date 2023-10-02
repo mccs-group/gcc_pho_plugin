@@ -11,6 +11,7 @@
 #include "gcc-plugin.h"
 #include "tree-pass.h"
 #include "tree.h"
+#include "opts.h"
 
 /// Dummy marker pass, does nothing
 class dummy_pass : public opt_pass {
@@ -42,6 +43,8 @@ class list_recv_pass : public opt_pass {
     opt_pass *clone() override { return new list_recv_pass(*this); }
 
     unsigned int execute(function *fun) override;
+    void set_level2_opts(struct cl_option_handlers handlers);
+    void set_level2_size_opts(struct cl_option_handlers handlers);
 };
 
 /// Pass that sends current function name
