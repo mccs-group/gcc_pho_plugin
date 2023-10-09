@@ -33,13 +33,27 @@ As we expect this plugin to be used only for final 'release' compilation, inabil
 Plugin utilizes unix datagram sockets for communication during compilation.
 Plugin creates socket 'gcc\_plugin.soc' socket in its working directory and binds to socket provided using `remote_socket` argument.
 The order and contents of send-receive operations depend on sub-mode: learning or inference.
+
+#### Learning
+
 In learning mode the plugin sends current function name to the socket and blocks until pass list is received. Then plugin applies the pass list and sends the new embedding.
+
+#### Inference
+
 In inference mode no function name is sent, instead plugin sends out initial function embedding (before the list), and blocks until pass list is received.
-No other messages are sent for the same function.
+After pass list is received, it is inserted into pass tree and the pass tree is looped, to force GCC to compile the same function.
+This is required for inference, as we need to get embedding after every pass to determine what to apply next.
+To avoid executing the same pass multiple times, `next` pointer of `list_insert_pass` is moved past the already executed segment of the pass tree.
+This cycling means that each new message to plugin in inference mode needs to contain only new passes, and not the full history of pass list.
 
 Pass lists are received by pass `list_recv_pass` (inserted with name 'dynamic\_list\_insert').
-Pass list format is the same as it was for pass list files.
-Also two special chars are recognised: '\0' and '?'.
+
+Pass list format is the same as it was for pass list files:
+ - Each pass name on new line
+ - '>' before the pass name makes it a subpass of the previous non-indented (with '>') pass
+ - Only one level of '>' indentation is supported
+
+In learning mode two special chars are recognised: '\0' and '?'.
 '\0' causes the initial (GCC default) pass list to be used (useful for getting baseline function embedding and stats).
 '?' causes the second pass list (which we are operating on) to be emptied and not filled with any passes (useful for getting initial state for reinforcement learning).
 
@@ -66,12 +80,12 @@ This marker pass is placed by plugin after the end of the pass list it operates 
 
 If the pass tree is in its initial state, it is not deleted, but pointer at list head is saved and the tree is joined bypassing this pass list. If the pass list has been altered, it is separated from the tree and all the passes in it are deleted to preserve memory.
 
-Then, based on first byte of pass list, the list is operated on, input buffer is cleared and the pass returns.
+Then, the list is parsed, inserted into the tree, tree is altered for inference purposes (if in inference mode), input buffer is cleared and the pass returns.
 
 #### `func_name_send_pass`
 
 This pass utilizes GCC macro `IDENTIFIER_POINTER` to get current function name.
-This macro essentially expands to language frontend hook, so c++ symbol names are returned in mangled state.
+This macro essentially expands to language frontend hook, so C++ symbol names are returned in mangled state.
 
 Some GCC passes add postfixes to functions.
 These postfixes are always separated with a '.', and pass drops them out when function name is printed to stdout.
