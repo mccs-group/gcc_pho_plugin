@@ -28,6 +28,7 @@ extern void maybe_set_param_value(int num, int value, int *params,
                                   int *params_set);
 extern int default_param_value(int num);
 extern char *xstrdup(const char *src);
+
 /// This pass clears pass tree till the next nearest
 /// '*plugin_dummy_pass_end_list<num>' and fills it with passes received on
 /// socket
@@ -142,10 +143,8 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
     if (subpasses_executed && (input_buf[0] == '>')) {
         new_next = last_sub_pass;
         subpasses_executed = false;
-        fprintf(stderr, "CHOSEN SUBPASSES AS NEXT\n");
     } else {
         new_next = last_pass ? last_pass : this;
-        fprintf(stderr, "CHOSEN REGULAR PASSES AS NEXT\n");
     }
     // Unloop the tree for now, so that GCC can correctly register new
     // passes
@@ -168,12 +167,10 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
     next = last_pass ? last_pass : pass;
 
     char *pass_list = input_buf;
-    fprintf(stderr, "IN PASS LIST %s\n", pass_list);
 
     bool to_unloop = false;
     char *pass_name = strtok(pass_list, "\n");
     while ((pass_name != NULL) && (pass_name[0] == '>')) {
-        fprintf(stderr, "RECEIVED FIRST INDENTED PASS\n");
         opt_pass *subpass = pass_by_name(pass_name + 1);
         if (subpass == NULL) {
             internal_error(
@@ -211,7 +208,6 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
             pass_name = strtok(NULL, "\n");
             continue;
         }
-        fprintf(stderr, "STARTED PARSING PASS NAME\n");
 
         opt_pass *pass_to_insert = pass_by_name(pass_name);
         if (pass_to_insert == NULL) {
@@ -250,17 +246,14 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
 
         register_callback("dynamic_replace_plugin", PLUGIN_PASS_MANAGER_SETUP,
                           NULL, &pass_data);
-        fprintf(stderr, "INSERTED NEW PASS %s\n", pass_to_insert->name);
         last_pass = pass_to_insert;
         pass_name = subpass_name;
     }
 
-    fprintf(stderr, "DONE INSERTING\n");
 
     // If last pass contained subpasses, insert exec_notif_pass to know from
     // which pass to start execution in the next cycle
     if ((last_sub_pass != NULL) && (last_sub_pass->next == NULL)) {
-        fprintf(stderr, "INSERTING NOTIF PASS\n");
         struct pass_data notif_pass_data = {
             opt_pass_type::GIMPLE_PASS,
             "exec_notif",
@@ -281,15 +274,14 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
     if (new_next != last_pass) {
         next = new_next->next;
     }
-    fprintf(stderr, "NEXT %p\n", next);
 
     memset(input_buf, 0, 4096);
 
     if (!to_unloop) {
         pass->next = cycle_start_pass;
-        fprintf(stderr, "LOOPED TREE\n");
     }
 }
+
 /// Function that sets internal compiler parameters as they are for -O2 flag
 void list_recv_pass::set_level2_opts()
 {
