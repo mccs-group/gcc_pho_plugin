@@ -16,10 +16,10 @@
 #include "function.h"
 #include "options.h"
 #include "opts.h"
+#include "params.h"
 #include "plugin-version.h"
 #include "target.h"
 #include "tree-pass.h"
-#include "params.h"
 
 static void delete_pass_tree(opt_pass *pass);
 extern struct gcc_target targetm;
@@ -27,25 +27,19 @@ extern diagnostic_context *global_dc;
 extern void maybe_set_param_value(int num, int value, int *params,
                                   int *params_set);
 extern int default_param_value(int num);
-
+extern char *xstrdup(const char *src);
 /// This pass clears pass tree till the next nearest
 /// '*plugin_dummy_pass_end_list<num>' and fills it with passes received on
 /// socket
 unsigned int list_recv_pass::execute(function *fun)
 {
-
-    // set internal compiler option corresponding to -Os optimizations
-    struct cl_option_handlers handlers;
-    set_default_handlers(&handlers, targetm.target_option.override);
-    set_level2_size_opts(handlers);
+    set_level2_size_opts();
 
     int size = recv(socket_fd, input_buf, 4096, 0);
     if (size == -1) {
         internal_error(
             "dynamic replace plugin pass failed to receive data on socket\n");
     }
-
-    char *pass_list = input_buf;
 
     opt_pass *pass = next;
     opt_pass *prev_pass = NULL;
@@ -58,17 +52,19 @@ unsigned int list_recv_pass::execute(function *fun)
         internal_error("dynamic replace plugin pass could not find list end\n");
     }
 
-    const char *marker_name = pass->name;
-
-    if (!recorded_next) {
-        next_from_marker = pass->next;
-        recorded_next = true;
-    }
+    marker_name = xstrdup(pass->name);
 
     if (is_inference) {
-        pass->next = next_from_marker;
+        inference_recv(pass, prev_pass);
+    } else {
+        learning_recv(pass, prev_pass);
     }
 
+    return 0;
+}
+
+void list_recv_pass::learning_recv(opt_pass *pass, opt_pass *prev_pass)
+{
     // If working with initial tree, separate list but preserve passes for
     // future baseline calculations
     if ((base_seq_start == NULL) || (next == base_seq_start)) {
@@ -80,7 +76,8 @@ unsigned int list_recv_pass::execute(function *fun)
         next = pass;
     }
 
-    bool to_unloop = false;
+    char *pass_list = input_buf;
+
     if (pass_list[0] == 0) { // Put initial tree
         next = base_seq_start;
         memset(input_buf, 0, 4096);
@@ -89,13 +86,8 @@ unsigned int list_recv_pass::execute(function *fun)
         char *pass_name = strtok(pass_list, "\n");
         while (pass_name) {
 
-            if ((is_inference) && (!strcmp(pass_name, "plsstop"))) {
-                to_unloop = true;
-                break;
-            }
-
             if (!strcmp(pass_name, "hot_fun")) {
-                set_level2_opts(handlers);
+                set_level2_opts();
                 pass_name = strtok(NULL, "\n");
                 continue;
             }
@@ -141,16 +133,165 @@ unsigned int list_recv_pass::execute(function *fun)
     }
 
     memset(input_buf, 0, 4096);
-
-    if ((is_inference) && (!to_unloop)) {
-        pass->next = cycle_start_pass;
-    }
-
-    return 0;
 }
 
+void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
+{
+
+    opt_pass *new_next = NULL;
+    if (subpasses_executed && (input_buf[0] == '>')) {
+        new_next = last_sub_pass;
+        subpasses_executed = false;
+        fprintf(stderr, "CHOSEN SUBPASSES AS NEXT\n");
+    } else {
+        new_next = last_pass ? last_pass : this;
+        fprintf(stderr, "CHOSEN REGULAR PASSES AS NEXT\n");
+    }
+    // Unloop the tree for now, so that GCC can correctly register new
+    // passes
+    pass->next = next_from_marker;
+
+    if (!recorded_next) {
+        next_from_marker = pass->next;
+        recorded_next = true;
+    }
+
+    if (new_function) {
+        if (prev_pass != NULL) {
+            prev_pass->next = NULL;
+            delete_pass_tree(next);
+            next = pass;
+        }
+        new_function = false;
+    }
+
+    next = last_pass ? last_pass : pass;
+
+    char *pass_list = input_buf;
+    fprintf(stderr, "IN PASS LIST %s\n", pass_list);
+
+    bool to_unloop = false;
+    char *pass_name = strtok(pass_list, "\n");
+    while ((pass_name != NULL) && (pass_name[0] == '>')) {
+        fprintf(stderr, "RECEIVED FIRST INDENTED PASS\n");
+        opt_pass *subpass = pass_by_name(pass_name + 1);
+        if (subpass == NULL) {
+            internal_error(
+                "dynamic replace plugin pass received an unknown "
+                "pass name [%s] in function [%s]\n",
+                pass_name,
+                IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)));
+        }
+        if (last_sub_pass != NULL) {
+            last_sub_pass->next = subpass;
+            last_sub_pass = subpass;
+        } else {
+            internal_error(
+                "dynamic replace plugin received pass list that "
+                "starts with a "
+                "subpass, but no passes for this function (%s) "
+                "were provided "
+                "earlier\n",
+                IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)));
+        }
+        pass_name = strtok(NULL, "\n");
+    }
+    while (pass_name) {
+        if (!strcmp(pass_name, "plsstop")) {
+            to_unloop = true;
+            new_function = true;
+            last_pass = NULL;
+            last_sub_pass = NULL;
+            subpasses_executed = false;
+            break;
+        }
+
+        if (!strcmp(pass_name, "hot_fun")) {
+            set_level2_opts();
+            pass_name = strtok(NULL, "\n");
+            continue;
+        }
+        fprintf(stderr, "STARTED PARSING PASS NAME\n");
+
+        opt_pass *pass_to_insert = pass_by_name(pass_name);
+        if (pass_to_insert == NULL) {
+            internal_error(
+                "dynamic replace plugin pass received an unknown "
+                "pass name [%s] in function [%s]\n",
+                pass_name,
+                IDENTIFIER_POINTER(decl_assembler_name(current_function_decl)));
+        }
+        last_sub_pass = NULL;
+        struct register_pass_info pass_data = {pass_to_insert, marker_name, 1,
+                                               PASS_POS_INSERT_BEFORE};
+
+        char *subpass_name = strtok(NULL, "\n");
+        opt_pass *prev_sub = NULL;
+        while ((subpass_name != NULL) && (subpass_name[0] == '>')) {
+            opt_pass *subpass = pass_by_name(subpass_name + 1);
+            if (subpass == NULL) {
+                internal_error(
+                    "dynamic replace plugin pass received an unknown "
+                    "pass name [%s] in function [%s]\n",
+                    pass_name,
+                    IDENTIFIER_POINTER(
+                        decl_assembler_name(current_function_decl)));
+            }
+            if (pass_to_insert->sub == NULL) {
+                pass_to_insert->sub = subpass;
+            } else {
+                prev_sub->next = subpass;
+            }
+            prev_sub = subpass;
+            last_sub_pass = subpass;
+
+            subpass_name = strtok(NULL, "\n");
+        }
+
+        register_callback("dynamic_replace_plugin", PLUGIN_PASS_MANAGER_SETUP,
+                          NULL, &pass_data);
+        fprintf(stderr, "INSERTED NEW PASS %s\n", pass_to_insert->name);
+        last_pass = pass_to_insert;
+        pass_name = subpass_name;
+    }
+
+    fprintf(stderr, "DONE INSERTING\n");
+
+    // If last pass contained subpasses, insert exec_notif_pass to know from
+    // which pass to start execution in the next cycle
+    if ((last_sub_pass != NULL) && (last_sub_pass->next == NULL)) {
+        fprintf(stderr, "INSERTING NOTIF PASS\n");
+        struct pass_data notif_pass_data = {
+            opt_pass_type::GIMPLE_PASS,
+            "exec_notif",
+            OPTGROUP_NONE,
+            TV_PLUGIN_INIT,
+            0,
+            0,
+            0,
+            0,
+            0,
+        };
+        opt_pass *notif_pass =
+            new exec_notif_pass(notif_pass_data, g, &subpasses_executed);
+        notif_pass->next = last_pass->next;
+        last_sub_pass->next = notif_pass;
+    }
+
+    if (new_next != last_pass) {
+        next = new_next->next;
+    }
+    fprintf(stderr, "NEXT %p\n", next);
+
+    memset(input_buf, 0, 4096);
+
+    if (!to_unloop) {
+        pass->next = cycle_start_pass;
+        fprintf(stderr, "LOOPED TREE\n");
+    }
+}
 /// Function that sets internal compiler parameters as they are for -O2 flag
-void list_recv_pass::set_level2_opts(struct cl_option_handlers handlers)
+void list_recv_pass::set_level2_opts()
 {
     global_options.x_optimize_size = 0;
     maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS,
@@ -170,7 +311,7 @@ void list_recv_pass::set_level2_opts(struct cl_option_handlers handlers)
 }
 
 /// Function that sets internal compiler parameters as they are for -Os flag
-void list_recv_pass::set_level2_size_opts(struct cl_option_handlers handlers)
+void list_recv_pass::set_level2_size_opts()
 {
     global_options.x_optimize_size = 1;
     maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS, 1,
@@ -246,9 +387,9 @@ unsigned int embedding_send_pass::execute(function *fun)
 }
 
 /// Function to REALLY delete passes. Pass manager will still hold pointers
-/// to these passes (and it does not seem fixable without patching GCC itself),
-/// but does not use or free()/delete() them,
-/// unless -fdump-passes flag is used
+/// to these passes (and it does not seem fixable without patching GCC
+/// itself), but does not use or free()/delete() them, unless -fdump-passes
+/// flag is used
 static void delete_pass_tree(opt_pass *pass)
 {
     while (pass) {
