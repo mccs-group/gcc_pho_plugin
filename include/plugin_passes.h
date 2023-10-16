@@ -64,6 +64,7 @@ class list_recv_pass : public opt_pass {
     bool new_function = true;
     bool recorded_next = false;
     bool subpasses_executed = false;
+    bool hot_fun = false;
     opt_pass *last_pass = NULL;
     opt_pass *last_sub_pass = NULL;
     struct cl_option_handlers handlers;

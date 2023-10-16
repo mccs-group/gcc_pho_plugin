@@ -34,7 +34,9 @@ extern char *xstrdup(const char *src);
 /// socket
 unsigned int list_recv_pass::execute(function *fun)
 {
-    set_level2_size_opts();
+    if (!hot_fun) {
+        set_level2_size_opts();
+    }
 
     int size = recv(socket_fd, input_buf, 4096, 0);
     if (size == -1) {
@@ -90,6 +92,7 @@ void list_recv_pass::learning_recv(opt_pass *pass, opt_pass *prev_pass)
             if (!strcmp(pass_name, "hot_fun")) {
                 set_level2_opts();
                 pass_name = strtok(NULL, "\n");
+                hot_fun = true;
                 continue;
             }
 
@@ -200,12 +203,14 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
             last_pass = NULL;
             last_sub_pass = NULL;
             subpasses_executed = false;
+            hot_fun = false;
             break;
         }
 
         if (!strcmp(pass_name, "hot_fun")) {
             set_level2_opts();
             pass_name = strtok(NULL, "\n");
+            hot_fun = true;
             continue;
         }
 
@@ -249,7 +254,6 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
         last_pass = pass_to_insert;
         pass_name = subpass_name;
     }
-
 
     // If last pass contained subpasses, insert exec_notif_pass to know from
     // which pass to start execution in the next cycle
@@ -309,7 +313,6 @@ void list_recv_pass::set_level2_size_opts()
     maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS, 1,
                           global_options.x_param_values,
                           global_options_set.x_param_values);
-    set_default_handlers(&handlers, targetm.target_option.override);
     handle_generated_option(&global_options, &global_options_set,
                             OPT_fschedule_insns, NULL, 0, 0, 0, 0, &handlers,
                             true, global_dc);
