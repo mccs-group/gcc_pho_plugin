@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
+#include <unistd.h>
 
 #include "plugin_passes.h"
 
@@ -156,7 +158,7 @@ static void insert_list_markers(struct plugin_name_args *plugin_info)
 }
 
 /// Create communication socket
-static int create_comm_socket()
+static int create_comm_socket(const char *soc_postfix)
 {
     int gcc_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (gcc_socket == -1) {
@@ -166,7 +168,14 @@ static int create_comm_socket()
 
     struct sockaddr_un socket_addr;
     socket_addr.sun_family = AF_UNIX;
-    strcpy(socket_addr.sun_path, "gcc_plugin.soc");
+    if (strlen(soc_postfix) > 108 - sizeof("gcc_plugin.soc")) {
+        fprintf(
+            stderr,
+            "plugin failed to bind socket, provided postfix [%s] is too long\n",
+            soc_postfix);
+        return -1;
+    }
+    sprintf(socket_addr.sun_path, "gcc_plugin%s.soc", soc_postfix);
     if (bind(gcc_socket, reinterpret_cast<sockaddr *>(&socket_addr),
              sizeof(socket_addr)) == -1) {
         fprintf(stderr, "plugin failed to bind socket, errno [%d]\n", errno);
@@ -280,7 +289,16 @@ int plugin_init(struct plugin_name_args *plugin_info,
 
         // setup dynamic per-function pass list replacement
         if (!strcmp(plugin_info->argv[i].key, "dyn_replace")) {
-            int gcc_socket = create_comm_socket();
+            char *soc_postfix = (char *)xcalloc(1, 1);
+            for (int j = 0; j < plugin_info->argc; j++) {
+                if (!strcmp(plugin_info->argv[j].key, "socket_postfix")) {
+                    free(soc_postfix);
+                    soc_postfix = plugin_info->argv[j].value;
+                }
+            }
+            int gcc_socket = create_comm_socket(soc_postfix);
+            register_callback(plugin_info->base_name, PLUGIN_FINISH,
+                              callbacks::compilation_end, soc_postfix);
 
             if (gcc_socket == -1) {
                 return -1;
@@ -334,8 +352,6 @@ int plugin_init(struct plugin_name_args *plugin_info,
             insert_marker_pass(plugin_info, opt_pass_type::GIMPLE_PASS,
                                "local-pure-const", PASS_POS_INSERT_AFTER, 201,
                                "_end_list2");
-            register_callback(plugin_info->base_name, PLUGIN_FINISH,
-                              callbacks::compilation_end, NULL);
 
             struct pass_data embed_send_pass_data = {
                 opt_pass_type::GIMPLE_PASS,
@@ -407,7 +423,6 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 list_insert_pass->is_inference = true;
                 list_insert_pass->cycle_start_pass = embed_send_pass;
             }
-            
         }
 
         // print help

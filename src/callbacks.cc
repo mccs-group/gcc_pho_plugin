@@ -3,9 +3,9 @@
 
 #include "gcc-plugin.h"
 
-#include "tree-pass.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "tree-pass.h"
 
 #include "callbacks.h"
 
@@ -67,5 +67,7 @@ void callbacks::pass_exec(void *gcc_data, void *used_data)
 /// Clean up after everything is finished
 void callbacks::compilation_end(void *gcc_data, void *user_data)
 {
-    unlink("gcc_plugin.soc");
+    char soc_name[108] = {0};
+    sprintf(soc_name, "gcc_plugin%s.soc", (char *)user_data);
+    unlink(soc_name);
 }
