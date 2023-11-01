@@ -47,7 +47,7 @@ class list_recv_pass : public opt_pass {
   public:
     list_recv_pass(const pass_data &data, gcc::context *g, int socket_fd)
         : opt_pass(data, g), socket_fd{socket_fd},
-          input_buf((char *)xmalloc(4096)), base_seq_start(NULL)
+          input_buf((char *)xcalloc(4096, 1)), base_seq_start(NULL)
     {
         set_default_handlers(&handlers, targetm.target_option.override);
     }
