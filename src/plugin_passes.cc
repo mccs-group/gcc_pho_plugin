@@ -287,10 +287,7 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
 }
 
 /// Function that sets internal compiler parameters as they are for -O2 flag
-void list_recv_pass::set_level2_opts()
-{
-    global_options.x_optimize_size = 0;
-}
+void list_recv_pass::set_level2_opts() { global_options.x_optimize_size = 0; }
 
 /// Function that sets internal compiler parameters as they are for -Os flag
 void list_recv_pass::set_level2_size_opts()
@@ -351,6 +348,14 @@ unsigned int embedding_send_pass::execute(function *fun)
              sizeof(int) + autophase_len + cfg_len + val_flow_len, 0) == -1) {
         internal_error("dynamic replace plugin failed to send embedding\n");
     }
+    return 0;
+}
+
+/// This passes sets x_optimize_size = 1 to make compiler passes operate as they
+/// would have with Os flag
+unsigned int set_optimize_size_pass::execute(function *fun)
+{
+    global_options.x_optimize_size = 1;
     return 0;
 }
 

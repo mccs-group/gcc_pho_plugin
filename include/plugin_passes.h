@@ -108,3 +108,16 @@ class embedding_send_pass : public opt_pass {
 
     unsigned int execute(function *fun) override;
 };
+
+/// Pass that switches compiler to size optimization
+class set_optimize_size_pass : public opt_pass {
+  public:
+    set_optimize_size_pass(const pass_data &data, gcc::context *g)
+        : opt_pass(data, g)
+    {
+    }
+
+    opt_pass *clone() override { return new set_optimize_size_pass(*this); }
+
+    unsigned int execute(function *fun) override;
+};

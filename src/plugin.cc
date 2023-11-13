@@ -285,6 +285,32 @@ int plugin_init(struct plugin_name_args *plugin_info,
                     }
                 }
             }
+
+            if ((plugin_info->argv[i].value != NULL) && (!strcmp(plugin_info->argv[i].value, "set_optimize_size"))) {
+                struct pass_data set_optimize_size_pass_data = {
+                    opt_pass_type::GIMPLE_PASS,
+                    "set_optimize_size",
+                    OPTGROUP_NONE,
+                    TV_NONE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                };
+                opt_pass *set_optimize_size =
+                    new set_optimize_size_pass(set_optimize_size_pass_data, g);
+                struct register_pass_info set_optimize_size_info = {
+                    set_optimize_size,
+                    "*strip_predict_hints",
+                    1,
+                    PASS_POS_INSERT_AFTER,
+                };
+
+                register_callback(plugin_info->base_name,
+                                  PLUGIN_PASS_MANAGER_SETUP, NULL,
+                                  &set_optimize_size_info);
+            }
         }
 
         // setup dynamic per-function pass list replacement
@@ -423,6 +449,96 @@ int plugin_init(struct plugin_name_args *plugin_info,
                 list_insert_pass->is_inference = true;
                 list_insert_pass->cycle_start_pass = embed_send_pass;
             }
+        }
+
+        // send to socket name and embedding of all functions
+        if (!strcmp(plugin_info->argv[i].key, "collect_embedding")) {
+            char *soc_postfix = (char *)xcalloc(1, 1);
+            for (int j = 0; j < plugin_info->argc; j++) {
+                if (!strcmp(plugin_info->argv[j].key, "socket_postfix")) {
+                    free(soc_postfix);
+                    soc_postfix = plugin_info->argv[j].value;
+                }
+            }
+            int gcc_socket = create_comm_socket(soc_postfix);
+            register_callback(plugin_info->base_name, PLUGIN_FINISH,
+                              callbacks::compilation_end, soc_postfix);
+
+            if (gcc_socket == -1) {
+                return -1;
+            }
+
+            struct sockaddr_un remote_addr;
+            remote_addr.sun_family = AF_UNIX;
+            bool rem_soc_found = false;
+            for (int j = 0; j < plugin_info->argc; j++) {
+                if (!strcmp(plugin_info->argv[j].key, "remote_socket")) {
+                    strcpy(remote_addr.sun_path, plugin_info->argv[j].value);
+                    rem_soc_found = true;
+                }
+            }
+
+            if (!rem_soc_found) {
+                fprintf(stderr,
+                        "remote socket for dyn pass replace not specified\n");
+                return -1;
+            }
+
+            if (connect(gcc_socket, reinterpret_cast<sockaddr *>(&remote_addr),
+                        sizeof(remote_addr)) == -1) {
+                fprintf(
+                    stderr,
+                    "plugin failed to connect to remote socket, errno [%d]\n",
+                    errno);
+                return -1;
+            }
+
+            // insert function name send pass
+            struct pass_data name_send_pass_data = {
+                opt_pass_type::GIMPLE_PASS,
+                "func_name_send",
+                OPTGROUP_NONE,
+                TV_NONE,
+                0,
+                0,
+                0,
+                0,
+                0,
+            };
+            opt_pass *name_send_pass =
+                new func_name_send_pass(name_send_pass_data, g, gcc_socket);
+            struct register_pass_info name_send_info = {
+                name_send_pass,
+                "*strip_predict_hints",
+                1,
+                PASS_POS_INSERT_AFTER,
+            };
+
+            register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
+                              NULL, &name_send_info);
+
+            // instert embedding send pass
+            struct pass_data embed_send_pass_data = {
+                opt_pass_type::GIMPLE_PASS,
+                "embed_send",
+                OPTGROUP_NONE,
+                TV_NONE,
+                0,
+                0,
+                0,
+                0,
+                0,
+            };
+            opt_pass *embed_send_pass =
+                new embedding_send_pass(embed_send_pass_data, g, gcc_socket);
+            struct register_pass_info embed_send_info = {
+                embed_send_pass,
+                "func_name_send",
+                1,
+                PASS_POS_INSERT_AFTER,
+            };
+            register_callback(plugin_info->base_name, PLUGIN_PASS_MANAGER_SETUP,
+                              NULL, &embed_send_info);
         }
 
         // print help
