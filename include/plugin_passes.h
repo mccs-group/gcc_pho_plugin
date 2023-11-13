@@ -49,7 +49,6 @@ class list_recv_pass : public opt_pass {
         : opt_pass(data, g), socket_fd{socket_fd},
           input_buf((char *)xcalloc(4096, 1)), base_seq_start(NULL)
     {
-        set_default_handlers(&handlers, targetm.target_option.override);
     }
 
     ~list_recv_pass() { free(input_buf); }
@@ -67,7 +66,6 @@ class list_recv_pass : public opt_pass {
     bool hot_fun = false;
     opt_pass *last_pass = NULL;
     opt_pass *last_sub_pass = NULL;
-    struct cl_option_handlers handlers;
 
     opt_pass *clone() override { return new list_recv_pass(*this); }
 

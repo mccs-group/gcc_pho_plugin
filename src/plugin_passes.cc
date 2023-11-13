@@ -290,39 +290,12 @@ void list_recv_pass::inference_recv(opt_pass *pass, opt_pass *prev_pass)
 void list_recv_pass::set_level2_opts()
 {
     global_options.x_optimize_size = 0;
-    maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS,
-                          default_param_value(PARAM_MIN_CROSSJUMP_INSNS),
-                          global_options.x_param_values,
-                          global_options_set.x_param_values);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_fschedule_insns, NULL, 1, 0, 0, 0, &handlers,
-                            true, global_dc);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_freorder_blocks_algorithm_, NULL,
-                            REORDER_BLOCKS_ALGORITHM_STC, 0, 0, 0, &handlers,
-                            true, global_dc);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_foptimize_strlen, NULL, 1, 0, 0, 0, &handlers,
-                            true, global_dc);
 }
 
 /// Function that sets internal compiler parameters as they are for -Os flag
 void list_recv_pass::set_level2_size_opts()
 {
     global_options.x_optimize_size = 1;
-    maybe_set_param_value(PARAM_MIN_CROSSJUMP_INSNS, 1,
-                          global_options.x_param_values,
-                          global_options_set.x_param_values);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_fschedule_insns, NULL, 0, 0, 0, 0, &handlers,
-                            true, global_dc);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_freorder_blocks_algorithm_, NULL,
-                            REORDER_BLOCKS_ALGORITHM_SIMPLE, 0, 0, 0, &handlers,
-                            true, global_dc);
-    handle_generated_option(&global_options, &global_options_set,
-                            OPT_foptimize_strlen, NULL, 0, 0, 0, 0, &handlers,
-                            true, global_dc);
 }
 
 /// This pass only sends current function name (for identification when
