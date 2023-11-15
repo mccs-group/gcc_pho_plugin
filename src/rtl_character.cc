@@ -118,7 +118,7 @@ void rtl_character::safe_statistics(rtx_def* exp)
 
     if (to_count(exp_class, exp_code))
         inst_count[exp_code]++;
-    
+
     if (exp_class == RTX_UNARY)
         characteristics[UNARY_INSTR]++;
 
@@ -177,7 +177,7 @@ void rtl_character::parse_expr(rtx_def* exp)
             parse_expr(XEXP(exp, i));
         if (format[i] == 'E')
             parse_expr_vec(exp, i);
-        
+
     }
 }
 
@@ -223,7 +223,6 @@ void rtl_character::parse_expr_vec(rtx_def* exp, int index)
 
 unsigned int rtl_character::parse_function(function * fun)
 {
-    characteristics[FUNCTIONS]++;
     basic_block bb;
     rtx_insn* insn;
 
@@ -232,7 +231,7 @@ unsigned int rtl_character::parse_function(function * fun)
     FOR_ALL_BB_FN(bb, fun)
     {
         current_bb_inst_amount = 0;
-        characteristics[BASIC_BLOCKS]++;
+        characteristics[BB_COUNT]++;
         FOR_BB_INSNS(bb, insn)
         {
             // std::cout << names[GET_CODE(insn)] << std::endl;
@@ -241,9 +240,9 @@ unsigned int rtl_character::parse_function(function * fun)
         }
 
         if (current_bb_inst_amount >= 15)
-            characteristics[BB_MORE_15_INST]++;
+            characteristics[BB_MID_INST]++;
         else
-            characteristics[BB_LESS_15_INST]++;
+            characteristics[BB_LOW_INST]++;
 
         edge succ_e;
         edge_iterator succ_ei;
@@ -253,19 +252,8 @@ unsigned int rtl_character::parse_function(function * fun)
         {
             bb_succ++;
         }
-        switch(bb_succ)
-        {
-            case 0:
-                break;
-            case 1:
-                bb_succ_statistics[0]++;
-            case 2:
-                bb_succ_statistics[1]++;
-            default:
-                bb_succ_statistics[2]++;
-        }
 
-        edge pred_e;
+		edge pred_e;
         edge_iterator pred_ei;
         int bb_pred = 0;
 
@@ -277,49 +265,59 @@ unsigned int rtl_character::parse_function(function * fun)
             characteristics[EDGES]++;
 
         }
-        switch(bb_pred)
+
+		switch(bb_pred)
         {
             case 0:
                 break;
             case 1:
-                bb_pred_statistics[0]++;
+                characteristics[BB_ONE_PRED]++;
+                switch(bb_succ)
+                {
+                    case 1:
+                        characteristics[BB_ONE_PRED_ONE_SUCC]++;
+                        break;
+                    case 2:
+                        characteristics[BB_ONE_PRED_TWO_SUCC]++;
+                        break;
+                    default:
+                        break;
+                }
+                break;
             case 2:
-                bb_pred_statistics[1]++;
+                characteristics[BB_TWO_PRED]++;
+                switch(bb_succ)
+                {
+                    case 1:
+                        characteristics[BB_TWO_PRED_ONE_SUCC]++;
+                        break;
+                    case 2:
+                        characteristics[BB_TWO_EACH]++;
+                        break;
+                    default:
+                        break;
+                }
+                break;
             default:
-                bb_pred_statistics[2]++;
+                characteristics[BB_MORE_PRED]++;
         }
 
+        switch(bb_succ)
+        {
+            case 0:
+                break;
+            case 1:
+                characteristics[BB_ONE_SUCC]++;
+                break;
+            case 2:
+                characteristics[BB_TWO_SUCC]++;
+                break;
+            default:
+                break;
+        }
     }
 
 
 
     return 0;
-}
-
-
-
-rtl_character::~rtl_character()
-{
-    if (to_dump)
-    {
-        // for (int i = 0; i < names.size(); i++)
-        //     std::cout << inst_count[i] << ' ' << names[i] << std::endl;
-
-        // std::cout << "Brrrrr" << std::endl;
-
-        // for (int i = 0; i < CHARACTERISTICS_AMOUNT; i++)
-        // {
-        //     std::cout << characteristics[i] << ' ' << i << " | ";
-        // }
-        // std::cout << std::endl;
-
-        // for (auto&& it : bb_pred_statistics)
-        //     std::cout << it << ' ';
-        // std::cout << std::endl;
-
-        // for (auto&& it : bb_succ_statistics)
-        //     std::cout << it << ' ';
-        // std::cout << std::endl;
-
-    }
 }

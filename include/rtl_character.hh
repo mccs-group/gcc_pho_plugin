@@ -23,17 +23,28 @@ public:
         MEMORY_INSTR,
         BINARY_WITH_CONST,
         INSTRUCTIONS,
-        FUNCTIONS,
-        BB_LESS_15_INST,
-        BB_MORE_15_INST,
-        BASIC_BLOCKS,
-        CRIT_EDGES,
-        EDGES,
-        INT32_COUNT,
-        INT64_COUNT,
-        ZERO_COUNT,
-        ONE_COUNT,
 
+        BB_ONE_PRED,
+        BB_ONE_PRED_ONE_SUCC,
+        BB_ONE_PRED_TWO_SUCC,
+        BB_ONE_SUCC,
+        BB_TWO_PRED,
+        BB_TWO_PRED_ONE_SUCC,
+        BB_TWO_SUCC,
+        BB_TWO_EACH,
+        BB_MORE_PRED,
+
+        BB_MID_INST,
+        BB_LOW_INST,
+        BB_COUNT,
+
+        EDGES,
+        CRIT_EDGES,
+
+        INT64_COUNT,
+        INT32_COUNT,
+        ONE_COUNT,
+        ZERO_COUNT,
 
         ASHR,
         LSHR,
@@ -88,8 +99,6 @@ public:
     void parse_expr(rtx_def* exp);
 
     unsigned int parse_function(function * fun);
-
-    ~rtl_character();
 
 private:
     bool to_count(enum rtx_class exp_class, enum rtx_code exp_code);

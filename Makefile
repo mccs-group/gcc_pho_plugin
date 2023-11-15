@@ -25,7 +25,10 @@ PLUGIN_COMPILE_FLAGS= -I$(PLUGIN_INCLUDE_DIR)/include -I./ -fno-rtti -fPIC -O3 -
 
 .PHONY: clean clean_obj build_plugins
 
-build_plugins: plugin.so test_plugin.so
+build_plugins: make_build_dir plugin.so test_plugin.so
+
+make_build_dir:
+	@mkdir -p build
 
 plugin.so: $(addprefix $(BUILD_DIR)/, $(OBJ_FILES))
 	$(CXX) $(PLUGIN_COMPILE_FLAGS) -shared $^ -o $@

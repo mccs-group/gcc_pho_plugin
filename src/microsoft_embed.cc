@@ -137,7 +137,7 @@ void microsoft_embed::compress_with_tSNE()
         if (smallest_eigen_vec.cols() < 6)
             tSNEcompressor.set_perplexity(1);
         else
-            tSNEcompressor.set_perplexity(smallest_eigen_vec.cols() / 3 - 1);
+            tSNEcompressor.set_perplexity(int(smallest_eigen_vec.cols() / 3) - 1);
     }
     auto ref = tSNEcompressor.run(smallest_eigen_vec.data(), smallest_eigen_vec.rows(), standart_on_bb_char_size, Y.data());
     cfg_embedding.reserve(standart_on_bb_char_size);
